@@ -1,20 +1,19 @@
 import OpenAI from "openai";
 
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export async function POST(req: Request) {
   try {
-    if (!process.env.OPENAI_API_KEY) {
-      return Response.json({ error: "Missing OpenAI API key" }, { status: 500 });
-    }
-
     const { article } = await req.json();
 
     if (!article) {
-      return Response.json({ error: "No article provided" }, { status: 400 });
+      return Response.json(
+        { error: "No article provided" },
+        { status: 400 }
+      );
     }
-
-    const openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -22,14 +21,18 @@ export async function POST(req: Request) {
         {
           role: "system",
           content: `
-You are an unbiased media analysis assistant.
-Analyze news articles for:
+You are a politically neutral media analysis assistant.
+
+Analyze the article for:
 1. Political leaning (if detectable)
-2. Emotional or loaded language
+2. Emotionally loaded language
 3. Framing techniques
 4. Missing perspectives
+
+Do not judge truthfulness.
+Do not take political positions.
 Use structured headings.
-Do not determine truth or accuse misinformation.
+Remain neutral and analytical.
           `,
         },
         {
@@ -44,7 +47,10 @@ Do not determine truth or accuse misinformation.
     });
 
   } catch (error) {
-    console.error(error);
-    return Response.json({ error: "Something went wrong" }, { status: 500 });
+    console.error("API Error:", error);
+    return Response.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
