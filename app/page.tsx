@@ -29,6 +29,9 @@ const featureCards = [
 
 export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [input, setInput] = useState("");
+  const [response, setResponse] = useState("");
+  const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") {
       return "auto";
@@ -61,6 +64,30 @@ export default function Home() {
       mediaQuery.removeEventListener("change", applyTheme);
     };
   }, [theme]);
+
+  async function handleAnalyze() {
+    if (!input) return;
+
+    setLoading(true);
+    setResponse("");
+
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ article: input }),
+      });
+
+      const data = await res.json();
+      setResponse(data.result ?? data.error ?? "Something went wrong.");
+    } catch {
+      setResponse("Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">
@@ -241,7 +268,9 @@ export default function Home() {
               </label>
               <textarea
                 id="article-input"
-                placeholder="Paste your news article here and SourceSense will help assess framing, tone, and source diversity..."
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                placeholder="Paste your news article here..."
                 className="min-h-[220px] w-full rounded-[28px] border border-[var(--app-border)] bg-[var(--input-background)] px-5 py-4 text-base leading-7 text-[var(--app-foreground)] outline-none transition placeholder:text-[var(--app-muted)] focus:border-[var(--accent-strong)]"
               />
 
@@ -249,9 +278,18 @@ export default function Home() {
                 <p className="text-sm text-[var(--app-muted)]">
                   Review tone, framing, and source diversity from one place.
                 </p>
-                <button className="rounded-2xl bg-[var(--accent-strong)] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(64,172,233,0.28)] transition hover:-translate-y-0.5 hover:brightness-105">
+                <button
+                  type="button"
+                  onClick={handleAnalyze}
+                  className="rounded-2xl bg-[var(--accent-strong)] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(64,172,233,0.28)] transition hover:-translate-y-0.5 hover:brightness-105"
+                >
                   Analyze article
                 </button>
+              </div>
+
+              <div className="mt-5 whitespace-pre-wrap text-sm leading-6 text-[var(--app-foreground)]">
+                {loading && <p>Analyzing...</p>}
+                {response && <p>{response}</p>}
               </div>
             </div>
           </div>
