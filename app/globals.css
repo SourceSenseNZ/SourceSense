@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  --accent-strong: #40ace9;
+  --accent-soft: rgba(64, 172, 233, 0.12);
+  --accent-border: rgba(64, 172, 233, 0.2);
+  --app-background: #f5f7fb;
+  --app-foreground: #2e2e2e;
+  --app-muted: #5f6b76;
+  --app-border: rgba(46, 46, 46, 0.1);
+  --app-border-strong: rgba(46, 46, 46, 0.16);
+  --sidebar-background: rgba(255, 255, 255, 0.92);
+  --topbar-background: rgba(245, 247, 251, 0.8);
+  --surface-raised: rgba(255, 255, 255, 0.88);
+  --surface-soft: #ffffff;
+  --input-background: #ffffff;
+  --panel-shadow: 0 22px 60px rgba(46, 46, 46, 0.08);
+}
+
+:root[data-theme="dark"] {
+  --app-background: #2e2e2e;
+  --app-foreground: #ffffff;
+  --app-muted: rgba(255, 255, 255, 0.68);
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-border-strong: rgba(255, 255, 255, 0.18);
+  --sidebar-background: rgba(255, 255, 255, 0.04);
+  --topbar-background: rgba(46, 46, 46, 0.72);
+  --surface-raised: rgba(255, 255, 255, 0.05);
+  --surface-soft: rgba(255, 255, 255, 0.03);
+  --input-background: rgba(255, 255, 255, 0.05);
+  --panel-shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
+}
+
+@theme inline {
+  --color-background: var(--app-background);
+  --color-foreground: var(--app-foreground);
+  --font-sans: "Inter", "Sohne", "SF Pro Text", "Segoe UI", sans-serif;
+  --font-mono: "SFMono-Regular", "SF Mono", "Consolas", "Liberation Mono", monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(64, 172, 233, 0.18), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(64, 172, 233, 0.1), transparent 24%),
+    var(--app-background);
+}
+
+body {
+  min-height: 100vh;
+  background: transparent;
+  color: var(--app-foreground);
+  font-family: "Inter", "Sohne", "SF Pro Text", "Segoe UI", sans-serif;
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease;
+}
+
+button,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(64, 172, 233, 0.28);
+  color: var(--app-foreground);
+}
+
+textarea::-webkit-scrollbar {
+  width: 10px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(64, 172, 233, 0.34);
+}
