@@ -1,5 +1,7 @@
 "use client";
 
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type ThemeMode = "light" | "dark" | "auto";
@@ -28,6 +30,7 @@ const featureCards = [
 ];
 
 export default function Home() {
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
@@ -47,6 +50,15 @@ export default function Home() {
 
     return "auto";
   });
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        router.push("/login");
+      }
+    });
+  }, [router]);
+
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
