@@ -6,24 +6,55 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const requestCounts = new Map<string, number>();
+// Store usage in memory
+const usageMap = new Map<
+  string,
+  { count: number; firstRequestTime: number }
+>();
+
+const DAILY_LIMIT = 3;
+const ONE_DAY = 24 * 60 * 60 * 1000;
 
 export async function POST(req: Request) {
   try {
-    const { article } = await req.json();
+    const ip =
+      req.headers.get("x-forwarded-for") ||
+      "unknown";
 
-    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    const now = Date.now();
 
-    const count = requestCounts.get(ip) || 0;
+    const userData = usageMap.get(ip);
 
-    if (count >= 5) {
-      return Response.json(
-        { error: "Rate limit exceeded. Try again later." },
-        { status: 429 }
-      );
+    if (userData) {
+      const timePassed = now - userData.firstRequestTime;
+
+      if (timePassed > ONE_DAY) {
+        // Reset after 24h
+        usageMap.set(ip, {
+          count: 1,
+          firstRequestTime: now,
+        });
+      } else {
+        if (userData.count >= DAILY_LIMIT) {
+          return Response.json(
+            { error: "Daily free limit reached (3 per day)." },
+            { status: 429 }
+          );
+        }
+
+        usageMap.set(ip, {
+          count: userData.count + 1,
+          firstRequestTime: userData.firstRequestTime,
+        });
+      }
+    } else {
+      usageMap.set(ip, {
+        count: 1,
+        firstRequestTime: now,
+      });
     }
 
-    requestCounts.set(ip, count + 1);
+    const { article } = await req.json();
 
     if (!article || article.length > 5000) {
       return Response.json(
@@ -37,7 +68,8 @@ export async function POST(req: Request) {
       messages: [
         {
           role: "system",
-          content: "You are a neutral media analysis assistant.",
+          content:
+            "You are a neutral media analysis assistant.",
         },
         {
           role: "user",
