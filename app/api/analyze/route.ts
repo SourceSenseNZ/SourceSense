@@ -6,13 +6,28 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+const requestCounts = new Map<string, number>();
+
 export async function POST(req: Request) {
   try {
     const { article } = await req.json();
 
-    if (!article) {
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+
+    const count = requestCounts.get(ip) || 0;
+
+    if (count >= 5) {
       return Response.json(
-        { error: "No article provided" },
+        { error: "Rate limit exceeded. Try again later." },
+        { status: 429 }
+      );
+    }
+
+    requestCounts.set(ip, count + 1);
+
+    if (!article || article.length > 5000) {
+      return Response.json(
+        { error: "Article too long or missing." },
         { status: 400 }
       );
     }
@@ -35,11 +50,11 @@ export async function POST(req: Request) {
       result: response.choices[0].message.content,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("OpenAI error:", error);
 
     return Response.json(
-      { error: error?.message || "Server error" },
+      { error: error instanceof Error ? error.message : "Server error" },
       { status: 500 }
     );
   }

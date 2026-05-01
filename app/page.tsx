@@ -31,6 +31,8 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
+  const [usageCount, setUsageCount] = useState(0);
+  const MAX_FREE_USAGE = 3;
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") {
@@ -66,6 +68,11 @@ export default function Home() {
   }, [theme]);
 
   async function handleAnalyze() {
+    if (usageCount >= MAX_FREE_USAGE) {
+      setResponse("Free limit reached. Please upgrade to continue.");
+      return;
+    }
+
     if (!input) return;
 
     setLoading(true);
@@ -82,6 +89,10 @@ export default function Home() {
 
       const data = await res.json();
       setResponse(data.result ?? data.error ?? "Something went wrong.");
+
+      if (res.ok) {
+        setUsageCount((prev) => prev + 1);
+      }
     } catch {
       setResponse("Something went wrong.");
     } finally {
