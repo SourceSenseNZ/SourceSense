@@ -24,7 +24,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("choice");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const passwordStrength =
