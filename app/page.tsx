@@ -1,5 +1,6 @@
 "use client";
 
+import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -122,8 +123,8 @@ export default function Home() {
         {sidebarOpen ? (
           <aside className="hidden w-[300px] shrink-0 border-r border-[var(--app-border)] bg-[var(--sidebar-background)] px-5 py-6 md:flex md:flex-col">
             <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[var(--accent-strong)] text-sm font-semibold text-white shadow-[0_18px_40px_rgba(64,172,233,0.28)]">
-                SS
+              <div className="flex h-11 w-11 items-center justify-center">
+                <Logo variant="icon" />
               </div>
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">

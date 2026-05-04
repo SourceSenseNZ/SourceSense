@@ -1,6 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Logo from "@/components/Logo";
+import Spinner from "@/components/Spinner";
+import SuccessCheck from "@/components/SuccessCheck";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
@@ -22,38 +25,51 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const passwordStrength =
+    password.length < 6 ? "Weak" : password.length < 10 ? "Medium" : "Strong";
 
   async function handleLogin() {
     setMessage("");
+    setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (error) {
-      setMessage("Invalid email or password.");
-    } else {
-      router.push("/");
+      if (error) {
+        setMessage("Invalid email or password.");
+      } else {
+        router.push("/");
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
   async function handleSignup() {
     setMessage("");
+    setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: "https://source-sense.vercel.app",
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: "https://source-sense.vercel.app",
+        },
+      });
 
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMode("confirm");
+      if (error) {
+        setMessage(error.message);
+      } else {
+        setMode("confirm");
+      }
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -64,7 +80,7 @@ export default function AuthPage() {
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
-        backgroundColor: "#343541",
+        backgroundColor: "#2f3037",
         color: "white",
         fontFamily: "Arial",
       }}
@@ -76,17 +92,21 @@ export default function AuthPage() {
           backgroundColor: "#202123",
           borderRadius: "14px",
           boxShadow: "0 0 40px rgba(0,0,0,0.3)",
+          transition: "all 0.3s ease",
+          animation: "fadeIn 0.4s ease",
         }}
       >
-        <h1 style={{ marginBottom: "30px", textAlign: "center" }}>SourceSense</h1>
+        <div style={{ textAlign: "center", marginBottom: "30px" }}>
+          <Logo variant="full" />
+        </div>
 
         {mode === "choice" && (
           <>
-            <button onClick={() => setMode("login")} style={primaryButton}>
+            <button onClick={() => setMode("login")} style={primaryButton} disabled={loading}>
               Sign In
             </button>
 
-            <button onClick={() => setMode("signup")} style={secondaryButton}>
+            <button onClick={() => setMode("signup")} style={secondaryButton} disabled={loading}>
               Create Account
             </button>
           </>
@@ -101,8 +121,8 @@ export default function AuthPage() {
               setPassword={setPassword}
             />
 
-            <button onClick={handleLogin} style={primaryButton}>
-              Sign In
+            <button onClick={handleLogin} style={primaryButton} disabled={loading}>
+              {loading ? <Spinner /> : "Sign In"}
             </button>
 
             <BackButton setMode={setMode} />
@@ -118,8 +138,26 @@ export default function AuthPage() {
               setPassword={setPassword}
             />
 
-            <button onClick={handleSignup} style={primaryButton}>
-              Create Account
+            {password && (
+              <p
+                style={{
+                  fontSize: "12px",
+                  marginTop: "-10px",
+                  marginBottom: "15px",
+                  color:
+                    passwordStrength === "Weak"
+                      ? "#ff5c5c"
+                      : passwordStrength === "Medium"
+                        ? "#facc15"
+                        : "#40ace9",
+                }}
+              >
+                Strength: {passwordStrength}
+              </p>
+            )}
+
+            <button onClick={handleSignup} style={primaryButton} disabled={loading}>
+              {loading ? <Spinner /> : "Create Account"}
             </button>
 
             <BackButton setMode={setMode} />
@@ -128,6 +166,7 @@ export default function AuthPage() {
 
         {mode === "confirm" && (
           <div style={{ textAlign: "center" }}>
+            <SuccessCheck />
             <h2>Check your email</h2>
             <p style={{ marginTop: "15px", color: "#ccc" }}>
               We&apos;ve sent a confirmation link to:
@@ -141,6 +180,7 @@ export default function AuthPage() {
             <button
               onClick={() => setMode("choice")}
               style={{ ...secondaryButton, marginTop: "25px" }}
+              disabled={loading}
             >
               Back to login
             </button>
@@ -158,6 +198,19 @@ export default function AuthPage() {
             {message}
           </p>
         )}
+
+        <style jsx>{`
+          @keyframes fadeIn {
+            from {
+              opacity: 0;
+              transform: translateY(10px);
+            }
+            to {
+              opacity: 1;
+              transform: translateY(0);
+            }
+          }
+        `}</style>
       </div>
     </div>
   );
@@ -193,7 +246,7 @@ function BackButton({ setMode }: BackButtonProps) {
         marginTop: "20px",
         textAlign: "center",
         cursor: "pointer",
-        color: "#19c37d",
+        color: "#40ace9",
       }}
     >
       Back
@@ -205,30 +258,32 @@ const inputStyle = {
   width: "100%",
   padding: "12px",
   marginBottom: "15px",
-  borderRadius: "8px",
-  border: "none",
-  backgroundColor: "#40414f",
+  borderRadius: "10px",
+  border: "1px solid #3a3b42",
+  backgroundColor: "#343541",
   color: "white",
 };
 
 const primaryButton = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "#19c37d",
+  backgroundColor: "#40ace9",
   border: "none",
-  borderRadius: "8px",
-  fontWeight: "bold",
+  borderRadius: "10px",
+  fontWeight: "600",
   cursor: "pointer",
   marginBottom: "15px",
+  transition: "all 0.2s ease",
 };
 
 const secondaryButton = {
   width: "100%",
   padding: "12px",
-  backgroundColor: "#2a2b32",
-  border: "1px solid #444",
-  borderRadius: "8px",
+  backgroundColor: "transparent",
+  border: "1px solid #40ace9",
+  borderRadius: "10px",
   cursor: "pointer",
   marginBottom: "15px",
-  color: "white",
+  color: "#40ace9",
+  fontWeight: "500",
 };
