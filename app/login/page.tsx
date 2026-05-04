@@ -7,31 +7,36 @@ import { useRouter } from "next/navigation";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [message, setMessage] = useState("");
   const router = useRouter();
 
   async function handleLogin() {
+    setMessage("");
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
 
     if (error) {
-      alert(error.message);
+      setMessage(error.message);
     } else {
       router.push("/");
     }
   }
 
   async function handleSignup() {
+    setMessage("");
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
     });
 
     if (error) {
-      alert(error.message);
+      setMessage(error.message);
     } else {
-      alert("Check your email to confirm your account.");
+      setMessage("Check your email to confirm your account.");
     }
   }
 
@@ -55,6 +60,8 @@ export default function Login() {
 
       <button onClick={handleLogin}>Login</button>
       <button onClick={handleSignup}>Sign Up</button>
+
+      {message ? <p>{message}</p> : null}
     </div>
   );
 }

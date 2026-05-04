@@ -52,11 +52,15 @@ export default function Home() {
   });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+
       if (!data.session) {
         router.push("/login");
       }
-    });
+    };
+
+    checkSession();
   }, [router]);
 
   useEffect(() => {
