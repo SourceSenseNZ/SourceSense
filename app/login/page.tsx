@@ -51,26 +51,25 @@ export default function AuthPage() {
   }
 
   async function handleSignup() {
-    setMessage("");
     setLoading(true);
+    setMessage("");
 
-    try {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: "https://source-sense.vercel.app",
-        },
-      });
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        emailRedirectTo: "https://source-sense.vercel.app",
+      },
+    });
 
-      if (error) {
-        setMessage(error.message);
-      } else {
-        setMode("confirm");
-      }
-    } finally {
-      setLoading(false);
+    setLoading(false);
+
+    if (error) {
+      setMessage(error.message);
+      return;
     }
+
+    setMode("confirm");
   }
 
   return (
