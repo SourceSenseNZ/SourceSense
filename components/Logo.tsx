@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 
 type LogoProps = {
-  variant?: "full" | "icon";
+  variant?: "full" | "mark" | "icon";
+  tone?: "auto" | "dark" | "light";
 };
 
 function getIsDarkTheme() {
@@ -25,7 +26,7 @@ function getIsDarkTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-export default function Logo({ variant = "full" }: LogoProps) {
+export default function Logo({ variant = "full", tone = "auto" }: LogoProps) {
   const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
@@ -46,17 +47,22 @@ export default function Logo({ variant = "full" }: LogoProps) {
     };
   }, []);
 
-  const src =
-    variant === "icon" ? "/logo-icon.png" : isDark ? "/logo-dark.png" : "/logo-light.png";
+  const resolvedDark = tone === "auto" ? isDark : tone === "dark";
+  const logoVariant = variant === "icon" ? "mark" : variant;
+  const src = resolvedDark
+    ? `/logo-dark-${logoVariant}-cropped.png`
+    : `/logo-light-${logoVariant}-cropped.png`;
+  const width = logoVariant === "full" ? 240 : 170;
+  const height = logoVariant === "full" ? 78 : 55;
 
   return (
     <Image
       src={src}
       alt="SourceSense"
-      width={variant === "icon" ? 40 : 200}
-      height={variant === "icon" ? 40 : 60}
+      width={width}
+      height={height}
       preload
-      style={{ height: "auto" }}
+      style={{ width: "100%", maxWidth: width, height: "auto" }}
     />
   );
 }

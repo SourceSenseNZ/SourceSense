@@ -122,16 +122,11 @@ export default function Home() {
       <div className="mx-auto flex min-h-screen max-w-[1600px]">
         {sidebarOpen ? (
           <aside className="hidden w-[300px] shrink-0 border-r border-[var(--app-border)] bg-[var(--sidebar-background)] px-5 py-6 md:flex md:flex-col">
-            <div className="mb-8 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center">
-                <Logo variant="icon" />
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
-                  Media Intelligence
-                </p>
-                <h1 className="text-xl font-semibold">SourceSense</h1>
-              </div>
+            <div className="mb-8">
+              <Logo variant="mark" />
+              <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
+                Media Intelligence
+              </p>
             </div>
 
             <button className="mb-8 rounded-2xl border border-[var(--app-border-strong)] bg-[var(--surface-raised)] px-4 py-3 text-left text-sm font-medium text-[var(--app-foreground)] shadow-[var(--panel-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]">

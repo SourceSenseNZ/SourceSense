@@ -1,34 +1,35 @@
 "use client";
 
+import type { CSSProperties, InputHTMLAttributes, ReactNode } from "react";
 import { useState } from "react";
-import Logo from "@/components/Logo";
-import Spinner from "@/components/Spinner";
-import SuccessCheck from "@/components/SuccessCheck";
-import { supabase } from "@/lib/supabase";
+import { AnimatePresence, motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import Logo from "@/components/Logo";
+import { supabase } from "@/lib/supabase";
 
 type AuthMode = "choice" | "login" | "signup" | "confirm";
 
-type AuthFormProps = {
-  email: string;
-  password: string;
-  setEmail: (email: string) => void;
-  setPassword: (password: string) => void;
+type ButtonProps = {
+  children: ReactNode;
+  onClick: () => void;
+  variant?: "primary" | "secondary";
+  disabled?: boolean;
 };
 
-type BackButtonProps = {
-  setMode: (mode: AuthMode) => void;
+type InputProps = Omit<InputHTMLAttributes<HTMLInputElement>, "onChange"> & {
+  value: string;
+  onChange: (value: string) => void;
 };
 
 export default function AuthPage() {
   const [mode, setMode] = useState<AuthMode>("choice");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState<string>("");
+  const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const passwordStrength =
-    password.length < 6 ? "Weak" : password.length < 10 ? "Medium" : "Strong";
+
+  const passwordStrength = password.length < 6 ? 0 : password.length < 10 ? 50 : 100;
 
   async function handleLogin() {
     setMessage("");
@@ -42,247 +43,263 @@ export default function AuthPage() {
 
       if (error) {
         setMessage("Invalid email or password.");
-      } else {
-        router.push("/");
+        return;
       }
+
+      router.push("/");
     } finally {
       setLoading(false);
     }
   }
 
   async function handleSignup() {
-    setLoading(true);
     setMessage("");
+    setLoading(true);
 
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: "https://source-sense.vercel.app",
-      },
-    });
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: "https://source-sense.vercel.app",
+        },
+      });
 
-    setLoading(false);
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
 
-    if (error) {
-      setMessage(error.message);
-      return;
+      setMode("confirm");
+    } finally {
+      setLoading(false);
     }
-
-    setMode("confirm");
   }
 
   return (
-    <div
-      style={{
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#2f3037",
-        color: "white",
-        fontFamily: "Arial",
-      }}
-    >
-      <div
-        style={{
-          width: "420px",
-          padding: "40px",
-          backgroundColor: "#202123",
-          borderRadius: "14px",
-          boxShadow: "0 0 40px rgba(0,0,0,0.3)",
-          transition: "all 0.3s ease",
-          animation: "fadeIn 0.4s ease",
-        }}
+    <div style={pageStyle}>
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        style={cardStyle}
       >
-        <div style={{ textAlign: "center", marginBottom: "30px" }}>
-          <Logo variant="full" />
+        <div style={{ textAlign: "center", marginBottom: "25px" }}>
+          <Logo variant="full" tone="dark" />
         </div>
 
-        {mode === "choice" && (
-          <>
-            <button onClick={() => setMode("login")} style={primaryButton} disabled={loading}>
-              Sign In
-            </button>
-
-            <button onClick={() => setMode("signup")} style={secondaryButton} disabled={loading}>
-              Create Account
-            </button>
-          </>
-        )}
-
-        {mode === "login" && (
-          <>
-            <AuthForm
-              email={email}
-              password={password}
-              setEmail={setEmail}
-              setPassword={setPassword}
-            />
-
-            <button onClick={handleLogin} style={primaryButton} disabled={loading}>
-              {loading ? <Spinner /> : "Sign In"}
-            </button>
-
-            <BackButton setMode={setMode} />
-          </>
-        )}
-
-        {mode === "signup" && (
-          <>
-            <AuthForm
-              email={email}
-              password={password}
-              setEmail={setEmail}
-              setPassword={setPassword}
-            />
-
-            {password && (
-              <p
-                style={{
-                  fontSize: "12px",
-                  marginTop: "-10px",
-                  marginBottom: "15px",
-                  color:
-                    passwordStrength === "Weak"
-                      ? "#ff5c5c"
-                      : passwordStrength === "Medium"
-                        ? "#facc15"
-                        : "#40ace9",
-                }}
-              >
-                Strength: {passwordStrength}
-              </p>
-            )}
-
-            <button onClick={handleSignup} style={primaryButton} disabled={loading}>
-              {loading ? <Spinner /> : "Create Account"}
-            </button>
-
-            <BackButton setMode={setMode} />
-          </>
-        )}
-
-        {mode === "confirm" && (
-          <div style={{ textAlign: "center" }}>
-            <SuccessCheck />
-            <h2>Check your email</h2>
-            <p style={{ marginTop: "15px", color: "#ccc" }}>
-              We&apos;ve sent a confirmation link to:
-            </p>
-            <p style={{ marginTop: "5px", fontWeight: "bold" }}>{email}</p>
-
-            <p style={{ marginTop: "20px", color: "#aaa", fontSize: "14px" }}>
-              If you don&apos;t see it, check your spam or junk folder.
-            </p>
-
-            <button
-              onClick={() => setMode("choice")}
-              style={{ ...secondaryButton, marginTop: "25px" }}
-              disabled={loading}
+        <AnimatePresence mode="wait">
+          {mode === "choice" && (
+            <motion.div
+              key="choice"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              Back to login
-            </button>
-          </div>
-        )}
+              <Button onClick={() => setMode("login")} disabled={loading}>
+                Sign In
+              </Button>
+              <Button variant="secondary" onClick={() => setMode("signup")} disabled={loading}>
+                Create Account
+              </Button>
+            </motion.div>
+          )}
 
-        {message && (
-          <p
-            style={{
-              marginTop: "20px",
-              color: "#ffb020",
-              textAlign: "center",
-            }}
-          >
-            {message}
-          </p>
-        )}
+          {(mode === "login" || mode === "signup") && (
+            <motion.div
+              key={mode}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <Input type="email" placeholder="Email" value={email} onChange={setEmail} />
+              <Input
+                type="password"
+                placeholder="Password"
+                value={password}
+                onChange={setPassword}
+              />
 
-        <style jsx>{`
-          @keyframes fadeIn {
-            from {
-              opacity: 0;
-              transform: translateY(10px);
-            }
-            to {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-        `}</style>
-      </div>
+              {mode === "signup" && password && (
+                <div style={{ marginBottom: "15px" }}>
+                  <div style={strengthBarContainer}>
+                    <motion.div
+                      animate={{ width: `${passwordStrength}%` }}
+                      style={{
+                        ...strengthBar,
+                        backgroundColor:
+                          passwordStrength < 50
+                            ? "#ff5c5c"
+                            : passwordStrength < 100
+                              ? "#facc15"
+                              : "#40ace9",
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <Button onClick={mode === "login" ? handleLogin : handleSignup} disabled={loading}>
+                {loading ? <Spinner /> : mode === "login" ? "Sign In" : "Create Account"}
+              </Button>
+
+              <p style={backLink} onClick={() => setMode("choice")}>
+                Back
+              </p>
+            </motion.div>
+          )}
+
+          {mode === "confirm" && (
+            <motion.div
+              key="confirm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <SuccessCheck />
+              <h2 style={{ textAlign: "center", margin: "0 0 10px" }}>Account Created</h2>
+              <p style={{ textAlign: "center", color: "#aaa", margin: "0 0 25px" }}>
+                You can now sign in.
+              </p>
+
+              <Button onClick={() => setMode("login")}>Continue to Login</Button>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {message && <p style={messageStyle}>{message}</p>}
+      </motion.div>
     </div>
   );
 }
 
-function AuthForm({ email, password, setEmail, setPassword }: AuthFormProps) {
+function Button({ children, onClick, variant = "primary", disabled = false }: ButtonProps) {
   return (
-    <>
-      <input
-        type="email"
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        style={inputStyle}
-      />
-
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        style={inputStyle}
-      />
-    </>
-  );
-}
-
-function BackButton({ setMode }: BackButtonProps) {
-  return (
-    <p
-      onClick={() => setMode("choice")}
+    <motion.button
+      whileHover={disabled ? undefined : { scale: 1.02, y: -1 }}
+      whileTap={disabled ? undefined : { scale: 0.98 }}
+      onClick={onClick}
+      disabled={disabled}
       style={{
-        marginTop: "20px",
-        textAlign: "center",
-        cursor: "pointer",
-        color: "#40ace9",
+        width: "100%",
+        minHeight: "45px",
+        padding: "12px",
+        borderRadius: "10px",
+        border: variant === "secondary" ? "1px solid #40ace9" : "none",
+        backgroundColor: variant === "secondary" ? "transparent" : "#40ace9",
+        color: variant === "secondary" ? "#40ace9" : "white",
+        marginBottom: "15px",
+        cursor: disabled ? "not-allowed" : "pointer",
+        fontWeight: 600,
+        opacity: disabled ? 0.7 : 1,
       }}
     >
-      Back
-    </p>
+      {children}
+    </motion.button>
   );
 }
 
-const inputStyle = {
-  width: "100%",
-  padding: "12px",
-  marginBottom: "15px",
-  borderRadius: "10px",
-  border: "1px solid #3a3b42",
-  backgroundColor: "#343541",
+function Input({ value, onChange, ...props }: InputProps) {
+  return (
+    <input
+      {...props}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      style={{
+        width: "100%",
+        padding: "12px",
+        marginBottom: "15px",
+        borderRadius: "10px",
+        border: "1px solid #3a3b42",
+        backgroundColor: "#2f3037",
+        color: "white",
+        boxSizing: "border-box",
+      }}
+    />
+  );
+}
+
+function Spinner() {
+  return (
+    <motion.div
+      animate={{ rotate: 360 }}
+      transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
+      style={{
+        width: 20,
+        height: 20,
+        border: "3px solid rgba(255,255,255,0.3)",
+        borderTop: "3px solid white",
+        borderRadius: "50%",
+        margin: "0 auto",
+      }}
+    />
+  );
+}
+
+function SuccessCheck() {
+  return (
+    <motion.div
+      initial={{ scale: 0 }}
+      animate={{ scale: 1 }}
+      transition={{ type: "spring", stiffness: 260, damping: 18 }}
+      style={{
+        width: 60,
+        height: 60,
+        borderRadius: "50%",
+        backgroundColor: "#40ace9",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        margin: "0 auto 20px",
+        color: "white",
+        fontSize: "28px",
+      }}
+    >
+      ✓
+    </motion.div>
+  );
+}
+
+const pageStyle: CSSProperties = {
+  minHeight: "100vh",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#2f3037",
   color: "white",
+  fontFamily: "Arial, sans-serif",
+  padding: "24px",
 };
 
-const primaryButton = {
+const cardStyle: CSSProperties = {
   width: "100%",
-  padding: "12px",
-  backgroundColor: "#40ace9",
-  border: "none",
-  borderRadius: "10px",
-  fontWeight: "600",
-  cursor: "pointer",
-  marginBottom: "15px",
-  transition: "all 0.2s ease",
+  maxWidth: "420px",
+  padding: "40px",
+  backgroundColor: "#202123",
+  borderRadius: "16px",
+  boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
 };
 
-const secondaryButton = {
-  width: "100%",
-  padding: "12px",
-  backgroundColor: "transparent",
-  border: "1px solid #40ace9",
-  borderRadius: "10px",
+const backLink: CSSProperties = {
+  textAlign: "center",
   cursor: "pointer",
-  marginBottom: "15px",
   color: "#40ace9",
-  fontWeight: "500",
+  marginTop: "10px",
+};
+
+const messageStyle: CSSProperties = {
+  margin: "5px 0 0",
+  color: "#ffb020",
+  textAlign: "center",
+};
+
+const strengthBarContainer: CSSProperties = {
+  height: "6px",
+  backgroundColor: "#3a3b42",
+  borderRadius: "6px",
+  overflow: "hidden",
+};
+
+const strengthBar: CSSProperties = {
+  height: "100%",
 };
