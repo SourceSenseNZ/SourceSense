@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 type LogoProps = {
   variant?: "full" | "mark" | "icon";
   tone?: "auto" | "dark" | "light";
+  className?: string;
 };
 
 function getIsDarkTheme() {
@@ -26,7 +27,7 @@ function getIsDarkTheme() {
   return window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
-export default function Logo({ variant = "full", tone = "auto" }: LogoProps) {
+export default function Logo({ variant = "full", tone = "auto", className }: LogoProps) {
   const [isDark, setIsDark] = useState(true);
 
   useEffect(() => {
@@ -61,8 +62,10 @@ export default function Logo({ variant = "full", tone = "auto" }: LogoProps) {
       alt="SourceSense"
       width={width}
       height={height}
+      className={className}
       preload
-      style={{ width: "100%", maxWidth: width, height: "auto" }}
+      sizes={`${width}px`}
+      style={{ display: "block", margin: "0 auto", width: "100%", maxWidth: width, height: "auto" }}
     />
   );
 }

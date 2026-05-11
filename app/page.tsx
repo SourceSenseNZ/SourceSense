@@ -123,7 +123,7 @@ export default function Home() {
         {sidebarOpen ? (
           <aside className="hidden w-[300px] shrink-0 border-r border-[var(--app-border)] bg-[var(--sidebar-background)] px-5 py-6 md:flex md:flex-col">
             <div className="mb-8">
-              <Logo variant="mark" />
+              <Logo variant="full" />
               <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
                 Media Intelligence
               </p>
@@ -175,6 +175,16 @@ export default function Home() {
               >
                 ☰
               </button>
+
+              <div
+                className={
+                  sidebarOpen
+                    ? "w-36 shrink-0 md:hidden"
+                    : "w-36 shrink-0 sm:w-44"
+                }
+              >
+                <Logo variant="full" />
+              </div>
 
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">

@@ -4,6 +4,20 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "SourceSense",
   description: "Analyze news articles in a polished, theme-aware workspace.",
+  icons: {
+    icon: [
+      {
+        url: "/logo-dark-mark-cropped.png",
+        type: "image/png",
+      },
+    ],
+    apple: [
+      {
+        url: "/logo-dark-mark-cropped.png",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({

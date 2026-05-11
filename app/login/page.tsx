@@ -84,7 +84,7 @@ export default function AuthPage() {
         transition={{ duration: 0.4 }}
         style={cardStyle}
       >
-        <div style={{ textAlign: "center", marginBottom: "25px" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "25px" }}>
           <Logo variant="full" tone="dark" />
         </div>
 
