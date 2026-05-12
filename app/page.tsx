@@ -29,6 +29,7 @@ export default function Home() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
+  const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
   const [usageCount, setUsageCount] = useState(0);
   const MAX_FREE_USAGE = 3;
   const [loading, setLoading] = useState(false);
@@ -78,6 +79,12 @@ export default function Home() {
     };
   }, [theme]);
 
+  function handleNewAnalysis() {
+    setResponse("");
+    setInput("");
+    setActiveAnalysisId(null);
+  }
+
   async function handleAnalyze() {
     if (usageCount >= MAX_FREE_USAGE) {
       setResponse("Free limit reached. Please upgrade to continue.");
@@ -123,7 +130,12 @@ export default function Home() {
               </p>
             </div>
 
-            <button className="mb-8 rounded-2xl border border-[var(--app-border-strong)] bg-[var(--surface-raised)] px-4 py-3 text-left text-sm font-medium text-[var(--app-foreground)] shadow-[var(--panel-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]">
+            <button
+              type="button"
+              onClick={handleNewAnalysis}
+              className="mb-8 rounded-2xl border border-[var(--app-border-strong)] bg-[var(--surface-raised)] px-4 py-3 text-left text-sm font-medium text-[var(--app-foreground)] shadow-[var(--panel-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
+              aria-current={activeAnalysisId === null ? "page" : undefined}
+            >
               + New analysis
             </button>
 
