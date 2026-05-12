@@ -9,12 +9,6 @@ type ThemeMode = "light" | "dark" | "auto";
 
 const STORAGE_KEY = "sourcesense-theme";
 
-const recentAnalyses = [
-  "Election coverage comparison",
-  "Headline framing check",
-  "Source diversity review",
-];
-
 const featureCards = [
   {
     title: "Bias Signals",
@@ -138,19 +132,12 @@ export default function Home() {
                 Recent
               </p>
               <span className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-xs text-[var(--app-muted)]">
-                {recentAnalyses.length}
+                0
               </span>
             </div>
 
-            <div className="space-y-2">
-              {recentAnalyses.map((item) => (
-                <button
-                  key={item}
-                  className="w-full rounded-2xl border border-transparent bg-transparent px-4 py-3 text-left text-sm text-[var(--app-muted)] transition hover:border-[var(--app-border)] hover:bg-[var(--surface-soft)] hover:text-[var(--app-foreground)]"
-                >
-                  {item}
-                </button>
-              ))}
+            <div style={{ fontSize: "14px", color: "#aaa" }}>
+              <p>No analyses yet</p>
             </div>
 
             <div className="mt-auto rounded-3xl border border-[var(--app-border)] bg-[var(--surface-soft)] p-4">
