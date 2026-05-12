@@ -119,10 +119,10 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">
-      <div className="mx-auto flex min-h-screen max-w-[1600px]">
+    <main className="h-screen overflow-hidden bg-[var(--app-background)] text-[var(--app-foreground)]">
+      <div className="mx-auto flex h-screen max-w-[1600px] overflow-hidden">
         {sidebarOpen ? (
-          <aside className="hidden w-[300px] shrink-0 border-r border-[var(--app-border)] bg-[var(--sidebar-background)] px-5 py-6 md:flex md:flex-col">
+          <aside className="hidden h-full w-[300px] shrink-0 overflow-y-auto border-r border-[var(--app-border)] bg-[var(--sidebar-background)] px-5 py-6 md:flex md:flex-col">
             <div className="mb-8">
               <Logo variant="full" />
               <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
@@ -163,8 +163,8 @@ export default function Home() {
           </aside>
         ) : null}
 
-        <section className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-10 border-b border-[var(--app-border)] bg-[color:var(--topbar-background)] backdrop-blur-xl">
+        <section className="flex h-full min-w-0 flex-1 flex-col">
+          <header className="shrink-0 border-b border-[var(--app-border)] bg-[color:var(--topbar-background)] backdrop-blur-xl">
             <div className="flex items-center gap-3 px-4 py-4 sm:px-6">
               <button
                 type="button"
@@ -212,7 +212,8 @@ export default function Home() {
             </div>
           </header>
 
-          <div className="flex flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 lg:px-8">
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
               <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-6 shadow-[var(--panel-shadow)] sm:p-8">
                 <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
@@ -280,7 +281,25 @@ export default function Home() {
               </aside>
             </div>
 
-            <div className="mt-6 rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-4 shadow-[var(--panel-shadow)] sm:p-6">
+              <div className="mt-6 rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-4 shadow-[var(--panel-shadow)] sm:p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
+                  Analysis result
+                </p>
+                <div className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[var(--app-foreground)]">
+                  {loading && <p>Analyzing...</p>}
+                  {response ? (
+                    <p>{response}</p>
+                  ) : (
+                    <p className="text-[var(--app-muted)]">
+                      Results will appear here after you analyze an article.
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 border-t border-[var(--app-border)] bg-[color:var(--topbar-background)] px-4 py-4 backdrop-blur-xl sm:px-6 lg:px-8">
+            <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-4 shadow-[var(--panel-shadow)] sm:p-6">
               <div className="mb-4 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
@@ -319,10 +338,7 @@ export default function Home() {
                 </button>
               </div>
 
-              <div className="mt-5 whitespace-pre-wrap text-sm leading-6 text-[var(--app-foreground)]">
-                {loading && <p>Analyzing...</p>}
-                {response && <p>{response}</p>}
-              </div>
+            </div>
             </div>
           </div>
         </section>
