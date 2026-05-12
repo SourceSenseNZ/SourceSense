@@ -120,9 +120,17 @@ export default function Home() {
 
   return (
     <main className="h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">
-      <div className="mx-auto flex h-screen max-w-[1600px]">
+      <div style={{ display: "flex", height: "100vh" }}>
         {sidebarOpen ? (
-          <aside className="hidden h-screen w-[300px] shrink-0 overflow-y-auto border-r border-[var(--app-border)] bg-[var(--sidebar-background)] px-5 py-6 md:flex md:flex-col">
+          <aside
+            className="hidden shrink-0 bg-[var(--sidebar-background)] px-5 py-6 md:flex md:flex-col"
+            style={{
+              width: "260px",
+              height: "100vh",
+              overflowY: "auto",
+              borderRight: "1px solid #2f3037",
+            }}
+          >
             <div className="mb-8">
               <Logo variant="full" />
               <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
@@ -163,7 +171,15 @@ export default function Home() {
           </aside>
         ) : null}
 
-        <section className="flex h-full min-w-0 flex-1 flex-col">
+        <section
+          className="flex min-w-0 flex-col"
+          style={{
+            flex: 1,
+            height: "100vh",
+            overflowY: "auto",
+            padding: "20px",
+          }}
+        >
           <header className="shrink-0 border-b border-[var(--app-border)] bg-[color:var(--topbar-background)] backdrop-blur-xl">
             <div className="flex items-center gap-3 px-4 py-4 sm:px-6">
               <button
@@ -212,7 +228,7 @@ export default function Home() {
             </div>
           </header>
 
-          <div className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
+          <div className="flex-1">
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_380px]">
               <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-6 shadow-[var(--panel-shadow)] sm:p-8">
                 <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
