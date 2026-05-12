@@ -1,10 +1,16 @@
 export const runtime = "nodejs";
 
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 // Store usage in memory
 const usageMap = new Map<
@@ -78,8 +84,19 @@ export async function POST(req: Request) {
       ],
     });
 
+    const result = response.choices[0].message.content;
+    const { error: insertError } = await supabase.from("analyses").insert({
+      article,
+      result,
+      ip,
+    });
+
+    if (insertError) {
+      console.error("Supabase insert error:", insertError);
+    }
+
     return Response.json({
-      result: response.choices[0].message.content,
+      result,
     });
 
   } catch (error: unknown) {
