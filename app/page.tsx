@@ -9,6 +9,13 @@ type ThemeMode = "light" | "dark" | "auto";
 
 const STORAGE_KEY = "sourcesense-theme";
 
+type Analysis = {
+  id: string;
+  title: string;
+  article: string;
+  content: string;
+};
+
 const featureCards = [
   {
     title: "Bias Signals",
@@ -30,6 +37,7 @@ export default function Home() {
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
   const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
+  const [analyses, setAnalyses] = useState<Analysis[]>([]);
   const [usageCount, setUsageCount] = useState(0);
   const MAX_FREE_USAGE = 3;
   const [loading, setLoading] = useState(false);
@@ -80,8 +88,8 @@ export default function Home() {
   }, [theme]);
 
   function handleNewAnalysis() {
-    setResponse("");
     setInput("");
+    setResponse("");
     setActiveAnalysisId(null);
   }
 
@@ -106,9 +114,23 @@ export default function Home() {
       });
 
       const data = await res.json();
-      setResponse(data.result ?? data.error ?? "Something went wrong.");
+      const result = data.result ?? data.error ?? "Something went wrong.";
 
-      if (res.ok) {
+      setResponse(result);
+
+      if (res.ok && data.result) {
+        const id = crypto.randomUUID();
+
+        setAnalyses((currentAnalyses) => [
+          {
+            id,
+            title: input.slice(0, 48) || "Untitled analysis",
+            article: input,
+            content: data.result,
+          },
+          ...currentAnalyses,
+        ]);
+        setActiveAnalysisId(id);
         setUsageCount((prev) => prev + 1);
       }
     } catch {
@@ -152,13 +174,35 @@ export default function Home() {
                 Recent
               </p>
               <span className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-xs text-[var(--app-muted)]">
-                0
+                {analyses.length}
               </span>
             </div>
 
-            <div style={{ fontSize: "14px", color: "#aaa" }}>
-              <p>No analyses yet</p>
-            </div>
+            {analyses.length > 0 ? (
+              <div className="space-y-2">
+                {analyses.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveAnalysisId(item.id);
+                      setInput(item.article);
+                      setResponse(item.content);
+                    }}
+                    className="w-full rounded-2xl border border-transparent px-4 py-3 text-left text-sm text-[var(--app-muted)] transition hover:border-[var(--app-border)] hover:bg-[var(--surface-soft)] hover:text-[var(--app-foreground)]"
+                    style={{
+                      backgroundColor: activeAnalysisId === item.id ? "#2f3037" : "transparent",
+                    }}
+                  >
+                    {item.title}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: "14px", color: "#aaa" }}>
+                <p>No analyses yet</p>
+              </div>
+            )}
 
             <div className="mt-auto rounded-3xl border border-[var(--app-border)] bg-[var(--surface-soft)] p-4">
               <p className="mb-2 text-sm font-semibold text-[var(--app-foreground)]">
