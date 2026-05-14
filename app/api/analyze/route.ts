@@ -42,17 +42,37 @@ export async function POST(req: Request) {
       content: article,
     });
 
-    // Get AI response
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are a neutral media analysis assistant." },
-        { role: "user", content: article },
-      ],
-    });
+    let aiResponse: string;
 
-    const aiResponse =
-      completion.choices[0].message.content;
+    if (!process.env.OPENAI_API_KEY) {
+      // Mock response for development
+      aiResponse = `
+SUMMARY:
+This article discusses political developments and public reaction.
+
+POTENTIAL BIAS:
+The language appears moderately framed with selective emphasis.
+
+LANGUAGE ANALYSIS:
+Some emotionally loaded phrases are used to influence perception.
+
+FRAMING:
+The article emphasizes criticism while minimizing counterarguments.
+
+MISSING CONTEXT:
+Additional perspectives or statistical context could improve neutrality.
+`;
+    } else {
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "You are a neutral media analysis assistant." },
+          { role: "user", content: article },
+        ],
+      });
+
+      aiResponse = completion.choices[0].message.content!;
+    }
 
     // Save AI response
     await supabase.from("messages").insert({
