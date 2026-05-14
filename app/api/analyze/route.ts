@@ -66,7 +66,7 @@ export async function POST(req: Request) {
       result: aiResponse,
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(error);
     return Response.json(
       { error: "Server error" },

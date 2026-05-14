@@ -3,16 +3,20 @@
 import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type ThemeMode = "light" | "dark" | "auto";
 
 const STORAGE_KEY = "sourcesense-theme";
 
-type Analysis = {
+type Thread = {
   id: string;
-  title: string;
-  article: string;
+  created_at: string;
+};
+
+type Message = {
+  id: string;
+  role: "user" | "assistant" | string;
   content: string;
 };
 
@@ -35,11 +39,9 @@ export default function Home() {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [input, setInput] = useState("");
-  const [response, setResponse] = useState("");
-  const [activeAnalysisId, setActiveAnalysisId] = useState<string | null>(null);
-  const [analyses, setAnalyses] = useState<Analysis[]>([]);
-  const [usageCount, setUsageCount] = useState(0);
-  const MAX_FREE_USAGE = 3;
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") {
@@ -55,6 +57,35 @@ export default function Home() {
     return "auto";
   });
 
+  const fetchThreads = useCallback(async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("threads")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setThreads(data);
+    }
+  }, []);
+
+  const fetchMessages = useCallback(async (threadId: string) => {
+    const { data, error } = await supabase
+      .from("messages")
+      .select("*")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true });
+
+    if (!error && data) {
+      setMessages(data);
+    }
+  }, []);
+
   useEffect(() => {
     const checkSession = async () => {
       const { data } = await supabase.auth.getSession();
@@ -66,6 +97,16 @@ export default function Home() {
 
     checkSession();
   }, [router]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      fetchThreads();
+    }, 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [fetchThreads]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -88,9 +129,9 @@ export default function Home() {
   }, [theme]);
 
   function handleNewAnalysis() {
+    setActiveThreadId(null);
+    setMessages([]);
     setInput("");
-    setResponse("");
-    setActiveAnalysisId(null);
   }
 
   async function handleAnalyze() {
@@ -102,7 +143,10 @@ export default function Home() {
       data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     const res = await fetch("/api/analyze", {
       method: "POST",
@@ -117,11 +161,11 @@ export default function Home() {
 
     const data = await res.json();
 
-    setResponse(data.result);
     setActiveThreadId(data.threadId);
     setLoading(false);
 
-    fetchThreads(); // we will define this next
+    await fetchThreads();
+    await fetchMessages(data.threadId);
   }
 
   return (
@@ -148,7 +192,7 @@ export default function Home() {
               type="button"
               onClick={handleNewAnalysis}
               className="mb-8 rounded-2xl border border-[var(--app-border-strong)] bg-[var(--surface-raised)] px-4 py-3 text-left text-sm font-medium text-[var(--app-foreground)] shadow-[var(--panel-shadow)] transition hover:-translate-y-0.5 hover:border-[var(--accent-strong)] hover:text-[var(--accent-strong)]"
-              aria-current={activeAnalysisId === null ? "page" : undefined}
+              aria-current={activeThreadId === null ? "page" : undefined}
             >
               + New analysis
             </button>
@@ -158,34 +202,36 @@ export default function Home() {
                 Recent
               </p>
               <span className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-xs text-[var(--app-muted)]">
-                {analyses.length}
+                {threads.length}
               </span>
             </div>
 
-            {analyses.length > 0 ? (
-              <div className="space-y-2">
-                {analyses.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveAnalysisId(item.id);
-                      setInput(item.article);
-                      setResponse(item.content);
-                    }}
-                    className="w-full rounded-2xl border border-transparent px-4 py-3 text-left text-sm text-[var(--app-muted)] transition hover:border-[var(--app-border)] hover:bg-[var(--surface-soft)] hover:text-[var(--app-foreground)]"
-                    style={{
-                      backgroundColor: activeAnalysisId === item.id ? "#2f3037" : "transparent",
-                    }}
-                  >
-                    {item.title}
-                  </button>
-                ))}
-              </div>
+            {threads.length === 0 ? (
+              <p style={{ color: "#aaa", padding: "10px" }}>
+                No analyses yet
+              </p>
             ) : (
-              <div style={{ fontSize: "14px", color: "#aaa" }}>
-                <p>No analyses yet</p>
-              </div>
+              threads.map((thread) => (
+                <div
+                  key={thread.id}
+                  onClick={() => {
+                    setActiveThreadId(thread.id);
+                    fetchMessages(thread.id);
+                  }}
+                  style={{
+                    padding: "10px",
+                    cursor: "pointer",
+                    borderRadius: "8px",
+                    marginBottom: "8px",
+                    backgroundColor:
+                      activeThreadId === thread.id
+                        ? "#2f3037"
+                        : "transparent",
+                  }}
+                >
+                  Analysis {thread.created_at.slice(0, 10)}
+                </div>
+              ))
             )}
 
             <div className="mt-auto rounded-3xl border border-[var(--app-border)] bg-[var(--surface-soft)] p-4">
@@ -330,13 +376,24 @@ export default function Home() {
                 </p>
                 <div className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[var(--app-foreground)]">
                   {loading && <p>Analyzing...</p>}
-                  {response ? (
-                    <p>{response}</p>
-                  ) : (
-                    <p className="text-[var(--app-muted)]">
-                      Results will appear here after you analyze an article.
-                    </p>
-                  )}
+                  <div style={{ padding: "20px" }}>
+                    {messages.map((msg) => (
+                      <div
+                        key={msg.id}
+                        style={{
+                          marginBottom: "15px",
+                          padding: "12px",
+                          borderRadius: "10px",
+                          backgroundColor:
+                            msg.role === "user"
+                              ? "#3a3b42"
+                              : "#202123",
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             <div className="mt-6 rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-4 shadow-[var(--panel-shadow)] sm:p-6">
