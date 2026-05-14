@@ -94,50 +94,34 @@ export default function Home() {
   }
 
   async function handleAnalyze() {
-    if (usageCount >= MAX_FREE_USAGE) {
-      setResponse("Free limit reached. Please upgrade to continue.");
-      return;
-    }
-
     if (!input) return;
 
     setLoading(true);
-    setResponse("");
 
-    try {
-      const res = await fetch("/api/analyze", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ article: input }),
-      });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-      const data = await res.json();
-      const result = data.result ?? data.error ?? "Something went wrong.";
+    if (!user) return;
 
-      setResponse(result);
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        article: input,
+        userId: user.id,
+      }),
+    });
 
-      if (res.ok && data.result) {
-        const id = crypto.randomUUID();
+    const data = await res.json();
 
-        setAnalyses((currentAnalyses) => [
-          {
-            id,
-            title: input.slice(0, 48) || "Untitled analysis",
-            article: input,
-            content: data.result,
-          },
-          ...currentAnalyses,
-        ]);
-        setActiveAnalysisId(id);
-        setUsageCount((prev) => prev + 1);
-      }
-    } catch {
-      setResponse("Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
+    setResponse(data.result);
+    setActiveThreadId(data.threadId);
+    setLoading(false);
+
+    fetchThreads(); // we will define this next
   }
 
   return (

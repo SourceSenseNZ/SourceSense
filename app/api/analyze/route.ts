@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY!,
 });
 
 const supabase = createClient(
@@ -12,98 +12,64 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-// Store usage in memory
-const usageMap = new Map<
-  string,
-  { count: number; firstRequestTime: number }
->();
-
-const DAILY_LIMIT = 3;
-const ONE_DAY = 24 * 60 * 60 * 1000;
-
 export async function POST(req: Request) {
   try {
-    const ip =
-      req.headers.get("x-forwarded-for") ||
-      "unknown";
+    const { article, userId } = await req.json();
 
-    const now = Date.now();
-
-    const userData = usageMap.get(ip);
-
-    if (userData) {
-      const timePassed = now - userData.firstRequestTime;
-
-      if (timePassed > ONE_DAY) {
-        // Reset after 24h
-        usageMap.set(ip, {
-          count: 1,
-          firstRequestTime: now,
-        });
-      } else {
-        if (userData.count >= DAILY_LIMIT) {
-          return Response.json(
-            { error: "Daily free limit reached (3 per day)." },
-            { status: 429 }
-          );
-        }
-
-        usageMap.set(ip, {
-          count: userData.count + 1,
-          firstRequestTime: userData.firstRequestTime,
-        });
-      }
-    } else {
-      usageMap.set(ip, {
-        count: 1,
-        firstRequestTime: now,
-      });
-    }
-
-    const { article } = await req.json();
-
-    if (!article || article.length > 5000) {
+    if (!article || !userId) {
       return Response.json(
-        { error: "Article too long or missing." },
+        { error: "Missing data" },
         { status: 400 }
       );
     }
 
-    const response = await openai.chat.completions.create({
+    // Create new thread
+    const { data: threadData, error: threadError } =
+      await supabase
+        .from("threads")
+        .insert({ user_id: userId })
+        .select()
+        .single();
+
+    if (threadError) throw threadError;
+
+    const threadId = threadData.id;
+
+    // Save user message
+    await supabase.from("messages").insert({
+      thread_id: threadId,
+      role: "user",
+      content: article,
+    });
+
+    // Get AI response
+    const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: [
-        {
-          role: "system",
-          content:
-            "You are a neutral media analysis assistant.",
-        },
-        {
-          role: "user",
-          content: article,
-        },
+        { role: "system", content: "You are a neutral media analysis assistant." },
+        { role: "user", content: article },
       ],
     });
 
-    const result = response.choices[0].message.content;
-    const { error: insertError } = await supabase.from("analyses").insert({
-      article,
-      result,
-      ip,
-    });
+    const aiResponse =
+      completion.choices[0].message.content;
 
-    if (insertError) {
-      console.error("Supabase insert error:", insertError);
-    }
+    // Save AI response
+    await supabase.from("messages").insert({
+      thread_id: threadId,
+      role: "assistant",
+      content: aiResponse,
+    });
 
     return Response.json({
-      result,
+      threadId,
+      result: aiResponse,
     });
 
-  } catch (error: unknown) {
-    console.error("OpenAI error:", error);
-
+  } catch (error: any) {
+    console.error(error);
     return Response.json(
-      { error: error instanceof Error ? error.message : "Server error" },
+      { error: "Server error" },
       { status: 500 }
     );
   }
