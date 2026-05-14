@@ -33,6 +33,8 @@ export async function POST(req: Request) {
 
     if (threadError) throw threadError;
 
+    console.log("Thread created:", threadData);
+
     const threadId = threadData.id;
 
     // Save user message

@@ -161,11 +161,14 @@ export default function Home() {
 
     const data = await res.json();
 
-    setActiveThreadId(data.threadId);
+    console.log("API response:", data);
     setLoading(false);
 
-    await fetchThreads();
-    await fetchMessages(data.threadId);
+    if (data.threadId) {
+      setActiveThreadId(data.threadId);
+      await fetchThreads();
+      await fetchMessages(data.threadId);
+    }
   }
 
   return (
