@@ -3,7 +3,7 @@
 import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type ThemeMode = "light" | "dark" | "auto";
 
@@ -43,6 +43,7 @@ export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<ThemeMode>(() => {
     if (typeof window === "undefined") {
       return "auto";
@@ -127,6 +128,13 @@ export default function Home() {
       mediaQuery.removeEventListener("change", applyTheme);
     };
   }, [theme]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop =
+        chatContainerRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   function handleNewAnalysis() {
     setActiveThreadId(null);
@@ -379,18 +387,34 @@ export default function Home() {
                 </p>
                 <div className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[var(--app-foreground)]">
                   {loading && <p>Analyzing...</p>}
-                  <div style={{ padding: "20px" }}>
+                  <div
+                    ref={chatContainerRef}
+                    style={{
+                      padding: "30px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "20px",
+                    }}
+                  >
                     {messages.map((msg) => (
                       <div
                         key={msg.id}
                         style={{
-                          marginBottom: "15px",
-                          padding: "12px",
-                          borderRadius: "10px",
+                          alignSelf:
+                            msg.role === "user" ? "flex-end" : "flex-start",
+                          maxWidth: "75%",
+                          padding: "14px 18px",
+                          borderRadius: "14px",
                           backgroundColor:
                             msg.role === "user"
-                              ? "#3a3b42"
-                              : "#202123",
+                              ? "#40ace9"
+                              : "#2f3037",
+                          color:
+                            msg.role === "user"
+                              ? "white"
+                              : "#e5e5e5",
+                          whiteSpace: "pre-wrap",
+                          lineHeight: "1.5",
                         }}
                       >
                         {msg.content}
