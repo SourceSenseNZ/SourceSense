@@ -46,7 +46,9 @@ export async function POST(req: Request) {
 
     let aiResponse: string;
 
-    if (!process.env.OPENAI_API_KEY) {
+    const FORCE_MOCK = true;
+
+    if (FORCE_MOCK) {
       // Mock response for development
       aiResponse = `
 SUMMARY:
