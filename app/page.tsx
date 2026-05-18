@@ -2,6 +2,7 @@
 
 import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -143,7 +144,7 @@ export default function Home() {
   }
 
   async function handleAnalyze() {
-    if (!input) return;
+    if (!input || loading) return;
 
     setLoading(true);
 
@@ -386,7 +387,6 @@ export default function Home() {
                   Analysis result
                 </p>
                 <div className="mt-4 whitespace-pre-wrap text-sm leading-6 text-[var(--app-foreground)]">
-                  {loading && <p>Analyzing...</p>}
                   <div
                     ref={chatContainerRef}
                     style={{
@@ -397,8 +397,11 @@ export default function Home() {
                     }}
                   >
                     {messages.map((msg) => (
-                      <div
+                      <motion.div
                         key={msg.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
                         style={{
                           alignSelf:
                             msg.role === "user" ? "flex-end" : "flex-start",
@@ -418,8 +421,23 @@ export default function Home() {
                         }}
                       >
                         {msg.content}
-                      </div>
+                      </motion.div>
                     ))}
+                    {loading && (
+                      <div
+                        style={{
+                          alignSelf: "flex-start",
+                          backgroundColor: "#2f3037",
+                          padding: "14px 18px",
+                          borderRadius: "14px",
+                          color: "#aaa",
+                          fontStyle: "italic",
+                          animation: "pulse 1.2s infinite",
+                        }}
+                      >
+                        Analyzing...
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -465,6 +483,13 @@ export default function Home() {
           </div>
         </section>
       </div>
+      <style jsx>{`
+        @keyframes pulse {
+          0% { opacity: 0.4; }
+          50% { opacity: 1; }
+          100% { opacity: 0.4; }
+        }
+      `}</style>
     </main>
   );
 }
