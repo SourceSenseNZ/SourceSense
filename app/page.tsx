@@ -13,6 +13,7 @@ const STORAGE_KEY = "sourcesense-theme";
 type Thread = {
   id: string;
   created_at: string;
+  title?: string | null;
 };
 
 type Message = {
@@ -180,6 +181,42 @@ export default function Home() {
     }
   }
 
+  async function handleRename(threadId: string) {
+    const newTitle = prompt("Enter new title:");
+
+    if (!newTitle) return;
+
+    await supabase
+      .from("threads")
+      .update({ title: newTitle })
+      .eq("id", threadId);
+
+    fetchThreads();
+  }
+
+  async function handleDelete(threadId: string) {
+    const confirmDelete = confirm("Delete this analysis?");
+
+    if (!confirmDelete) return;
+
+    await supabase
+      .from("messages")
+      .delete()
+      .eq("thread_id", threadId);
+
+    await supabase
+      .from("threads")
+      .delete()
+      .eq("id", threadId);
+
+    if (activeThreadId === threadId) {
+      setActiveThreadId(null);
+      setMessages([]);
+    }
+
+    fetchThreads();
+  }
+
   return (
     <main className="h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">
       <div style={{ display: "flex", height: "100vh" }}>
@@ -226,22 +263,49 @@ export default function Home() {
               threads.map((thread) => (
                 <div
                   key={thread.id}
-                  onClick={() => {
-                    setActiveThreadId(thread.id);
-                    fetchMessages(thread.id);
-                  }}
                   style={{
                     padding: "10px",
-                    cursor: "pointer",
                     borderRadius: "8px",
-                    marginBottom: "8px",
+                    marginBottom: "6px",
                     backgroundColor:
                       activeThreadId === thread.id
                         ? "#2f3037"
                         : "transparent",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    cursor: "pointer",
+                  }}
+                  onClick={() => {
+                    setActiveThreadId(thread.id);
+                    fetchMessages(thread.id);
                   }}
                 >
-                  Analysis {thread.created_at.slice(0, 10)}
+                  <span style={{ flex: 1 }}>
+                    {thread.title || "Untitled"}
+                  </span>
+
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRename(thread.id);
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer" }}
+                    >
+                      ✏️
+                    </button>
+
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDelete(thread.id);
+                      }}
+                      style={{ background: "none", border: "none", cursor: "pointer" }}
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 </div>
               ))
             )}
