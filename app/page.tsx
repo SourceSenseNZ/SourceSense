@@ -533,17 +533,22 @@ function ThreadItem({
       data: { session },
     } = await supabase.auth.getSession();
 
-    if (!session) return;
+    if (!session) {
+      console.log("No session found");
+      return;
+    }
 
     const { error } = await supabase
       .from("threads")
       .update({ title })
       .eq("id", thread.id);
 
-    if (!error) {
-      await fetchThreads();
+    if (error) {
+      console.log("Rename error:", error);
+      return;
     }
 
+    await fetchThreads();
     setEditing(false);
   }
 
