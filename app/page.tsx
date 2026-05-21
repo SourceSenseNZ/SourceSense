@@ -529,17 +529,20 @@ function ThreadItem({
   }
 
   async function saveRename() {
-    if (!title.trim()) {
-      setEditing(false);
-      return;
-    }
+    console.log("Saving rename:", title);
 
-    await supabase
+    const { data, error } = await supabase
       .from("threads")
       .update({ title })
-      .eq("id", thread.id);
+      .eq("id", thread.id)
+      .select();
 
-    await fetchThreads();
+    console.log("Rename result:", data, error);
+
+    if (!error) {
+      await fetchThreads();
+    }
+
     setEditing(false);
   }
 
