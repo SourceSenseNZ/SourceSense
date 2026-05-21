@@ -529,15 +529,16 @@ function ThreadItem({
   }
 
   async function saveRename() {
-    console.log("Saving rename:", title);
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    const { data, error } = await supabase
+    if (!session) return;
+
+    const { error } = await supabase
       .from("threads")
       .update({ title })
-      .eq("id", thread.id)
-      .select();
-
-    console.log("Rename result:", data, error);
+      .eq("id", thread.id);
 
     if (!error) {
       await fetchThreads();
