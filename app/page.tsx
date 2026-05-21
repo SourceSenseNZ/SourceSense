@@ -4,7 +4,15 @@ import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 type ThemeMode = "light" | "dark" | "auto";
 
@@ -36,6 +44,14 @@ const featureCards = [
     description: "Turn long-form articles into a quick, readable editorial snapshot.",
   },
 ];
+
+const iconButtonStyle: CSSProperties = {
+  background: "none",
+  border: "none",
+  cursor: "pointer",
+  color: "#aaa",
+  fontSize: "14px",
+};
 
 export default function Home() {
   const router = useRouter();
@@ -181,42 +197,6 @@ export default function Home() {
     }
   }
 
-  async function handleRename(threadId: string) {
-    const newTitle = prompt("Enter new title:");
-
-    if (!newTitle) return;
-
-    await supabase
-      .from("threads")
-      .update({ title: newTitle })
-      .eq("id", threadId);
-
-    fetchThreads();
-  }
-
-  async function handleDelete(threadId: string) {
-    const confirmDelete = confirm("Delete this analysis?");
-
-    if (!confirmDelete) return;
-
-    await supabase
-      .from("messages")
-      .delete()
-      .eq("thread_id", threadId);
-
-    await supabase
-      .from("threads")
-      .delete()
-      .eq("id", threadId);
-
-    if (activeThreadId === threadId) {
-      setActiveThreadId(null);
-      setMessages([]);
-    }
-
-    fetchThreads();
-  }
-
   return (
     <main className="h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">
       <div style={{ display: "flex", height: "100vh" }}>
@@ -261,52 +241,15 @@ export default function Home() {
               </p>
             ) : (
               threads.map((thread) => (
-                <div
+                <ThreadItem
                   key={thread.id}
-                  style={{
-                    padding: "10px",
-                    borderRadius: "8px",
-                    marginBottom: "6px",
-                    backgroundColor:
-                      activeThreadId === thread.id
-                        ? "#2f3037"
-                        : "transparent",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => {
-                    setActiveThreadId(thread.id);
-                    fetchMessages(thread.id);
-                  }}
-                >
-                  <span style={{ flex: 1 }}>
-                    {thread.title || "Untitled"}
-                  </span>
-
-                  <div style={{ display: "flex", gap: "8px" }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRename(thread.id);
-                      }}
-                      style={{ background: "none", border: "none", cursor: "pointer" }}
-                    >
-                      ✏️
-                    </button>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(thread.id);
-                      }}
-                      style={{ background: "none", border: "none", cursor: "pointer" }}
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
+                  thread={thread}
+                  activeThreadId={activeThreadId}
+                  setActiveThreadId={setActiveThreadId}
+                  fetchMessages={fetchMessages}
+                  fetchThreads={fetchThreads}
+                  setMessages={setMessages}
+                />
               ))
             )}
 
@@ -555,5 +498,115 @@ export default function Home() {
         }
       `}</style>
     </main>
+  );
+}
+
+type ThreadItemProps = {
+  thread: Thread;
+  activeThreadId: string | null;
+  setActiveThreadId: Dispatch<SetStateAction<string | null>>;
+  fetchMessages: (threadId: string) => Promise<void>;
+  fetchThreads: () => Promise<void>;
+  setMessages: Dispatch<SetStateAction<Message[]>>;
+};
+
+function ThreadItem({
+  thread,
+  activeThreadId,
+  setActiveThreadId,
+  fetchMessages,
+  fetchThreads,
+  setMessages,
+}: ThreadItemProps) {
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(thread.title ?? "");
+
+  async function saveRename() {
+    await supabase
+      .from("threads")
+      .update({ title })
+      .eq("id", thread.id);
+
+    setEditing(false);
+    fetchThreads();
+  }
+
+  async function deleteThread() {
+    await supabase
+      .from("messages")
+      .delete()
+      .eq("thread_id", thread.id);
+
+    await supabase
+      .from("threads")
+      .delete()
+      .eq("id", thread.id);
+
+    if (activeThreadId === thread.id) {
+      setMessages([]);
+      setActiveThreadId(null);
+    }
+
+    fetchThreads();
+  }
+
+  return (
+    <div
+      style={{
+        padding: "10px",
+        borderRadius: "8px",
+        marginBottom: "6px",
+        backgroundColor:
+          activeThreadId === thread.id
+            ? "#2f3037"
+            : "transparent",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}
+    >
+      {editing ? (
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          onBlur={saveRename}
+          autoFocus
+          style={{
+            backgroundColor: "#2f3037",
+            border: "1px solid #40ace9",
+            color: "white",
+            borderRadius: "6px",
+            padding: "4px 8px",
+            flex: 1,
+          }}
+        />
+      ) : (
+        <span
+          onClick={() => {
+            setActiveThreadId(thread.id);
+            fetchMessages(thread.id);
+          }}
+          style={{ flex: 1, cursor: "pointer" }}
+        >
+          {thread.title || "Untitled"}
+        </span>
+      )}
+
+      <div style={{ display: "flex", gap: "8px" }}>
+        <button
+          onClick={() => setEditing(true)}
+          style={iconButtonStyle}
+        >
+          ✏️
+        </button>
+
+        <button
+          onClick={deleteThread}
+          style={iconButtonStyle}
+        >
+          🗑️
+        </button>
+      </div>
+    </div>
   );
 }
