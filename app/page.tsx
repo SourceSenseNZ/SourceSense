@@ -519,16 +519,28 @@ function ThreadItem({
   setMessages,
 }: ThreadItemProps) {
   const [editing, setEditing] = useState(false);
-  const [title, setTitle] = useState(thread.title ?? "");
+  const threadTitle = thread.title || "";
+  const [lastThreadTitle, setLastThreadTitle] = useState(threadTitle);
+  const [title, setTitle] = useState(threadTitle);
+
+  if (threadTitle !== lastThreadTitle) {
+    setLastThreadTitle(threadTitle);
+    setTitle(threadTitle);
+  }
 
   async function saveRename() {
+    if (!title.trim()) {
+      setEditing(false);
+      return;
+    }
+
     await supabase
       .from("threads")
       .update({ title })
       .eq("id", thread.id);
 
+    await fetchThreads();
     setEditing(false);
-    fetchThreads();
   }
 
   async function deleteThread() {
@@ -569,6 +581,11 @@ function ThreadItem({
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              saveRename();
+            }
+          }}
           onBlur={saveRename}
           autoFocus
           style={{
@@ -594,7 +611,10 @@ function ThreadItem({
 
       <div style={{ display: "flex", gap: "8px" }}>
         <button
-          onClick={() => setEditing(true)}
+          onClick={() => {
+            setTitle(threadTitle);
+            setEditing(true);
+          }}
           style={iconButtonStyle}
         >
           ✏️
