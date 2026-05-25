@@ -529,6 +529,9 @@ function ThreadItem({
   }
 
   async function saveRename() {
+    console.log("Saving rename for thread:", thread.id);
+    console.log("New title:", title);
+
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -588,25 +591,44 @@ function ThreadItem({
       }}
     >
       {editing ? (
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              saveRename();
-            }
-          }}
-          onBlur={saveRename}
-          autoFocus
-          style={{
-            backgroundColor: "#2f3037",
-            border: "1px solid #40ace9",
-            color: "white",
-            borderRadius: "6px",
-            padding: "4px 8px",
-            flex: 1,
-          }}
-        />
+        <>
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                saveRename();
+              }
+              if (e.key === "Escape") {
+                setEditing(false);
+                setTitle(thread.title || "");
+              }
+            }}
+            autoFocus
+            style={{
+              backgroundColor: "#2f3037",
+              border: "1px solid #40ace9",
+              color: "white",
+              borderRadius: "6px",
+              padding: "4px 8px",
+              flex: 1
+            }}
+          />
+          <button
+            onClick={saveRename}
+            style={{
+              background: "#40ace9",
+              border: "none",
+              color: "white",
+              padding: "4px 8px",
+              borderRadius: "6px",
+              cursor: "pointer"
+            }}
+          >
+            Save
+          </button>
+        </>
       ) : (
         <span
           onClick={() => {
