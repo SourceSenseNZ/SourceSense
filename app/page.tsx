@@ -5,8 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
-  type Dispatch,
-  type SetStateAction,
   useCallback,
   useEffect,
   useRef,
@@ -95,6 +93,25 @@ export default function Home() {
       setMessages(data);
     }
   }, []);
+
+  async function deleteThread(threadId: string) {
+    await supabase
+      .from("messages")
+      .delete()
+      .eq("thread_id", threadId);
+
+    await supabase
+      .from("threads")
+      .delete()
+      .eq("id", threadId);
+
+    if (activeThreadId === threadId) {
+      setMessages([]);
+      setActiveThreadId(null);
+    }
+
+    fetchThreads();
+  }
 
   useEffect(() => {
     const checkSession = async () => {
@@ -232,15 +249,52 @@ export default function Home() {
               </p>
             ) : (
               threads.map((thread) => (
-                <ThreadItem
+                <div
                   key={thread.id}
-                  thread={thread}
-                  activeThreadId={activeThreadId}
-                  setActiveThreadId={setActiveThreadId}
-                  fetchMessages={fetchMessages}
-                  fetchThreads={fetchThreads}
-                  setMessages={setMessages}
-                />
+                  style={{
+                    padding: "10px",
+                    borderRadius: "8px",
+                    marginBottom: "6px",
+                    backgroundColor:
+                      activeThreadId === thread.id
+                        ? "#2f3037"
+                        : "transparent",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    cursor: "pointer"
+                  }}
+                  onClick={() => {
+                    setActiveThreadId(thread.id);
+                    fetchMessages(thread.id);
+                  }}
+                >
+                  <span
+                    style={{
+                      flex: 1,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis"
+                    }}
+                  >
+                    {thread.title || "Untitled"}
+                  </span>
+
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteThread(thread.id);
+                    }}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      cursor: "pointer",
+                      color: "#aaa"
+                    }}
+                  >
+                    🗑️
+                  </button>
+                </div>
               ))
             )}
 
@@ -489,90 +543,5 @@ export default function Home() {
         }
       `}</style>
     </main>
-  );
-}
-
-type ThreadItemProps = {
-  thread: Thread;
-  activeThreadId: string | null;
-  setActiveThreadId: Dispatch<SetStateAction<string | null>>;
-  fetchMessages: (threadId: string) => Promise<void>;
-  fetchThreads: () => Promise<void>;
-  setMessages: Dispatch<SetStateAction<Message[]>>;
-};
-
-function ThreadItem({
-  thread,
-  activeThreadId,
-  setActiveThreadId,
-  fetchMessages,
-  fetchThreads,
-  setMessages,
-}: ThreadItemProps) {
-  async function deleteThread(threadId: string) {
-    await supabase
-      .from("messages")
-      .delete()
-      .eq("thread_id", threadId);
-
-    await supabase
-      .from("threads")
-      .delete()
-      .eq("id", threadId);
-
-    if (activeThreadId === threadId) {
-      setMessages([]);
-      setActiveThreadId(null);
-    }
-
-    fetchThreads();
-  }
-
-  return (
-    <div
-      style={{
-        padding: "10px",
-        borderRadius: "8px",
-        marginBottom: "6px",
-        backgroundColor:
-          activeThreadId === thread.id
-            ? "#2f3037"
-            : "transparent",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        cursor: "pointer"
-      }}
-      onClick={() => {
-        setActiveThreadId(thread.id);
-        fetchMessages(thread.id);
-      }}
-    >
-      <span
-        style={{
-          flex: 1,
-          whiteSpace: "nowrap",
-          overflow: "hidden",
-          textOverflow: "ellipsis"
-        }}
-      >
-        {thread.title || "Untitled"}
-      </span>
-
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          deleteThread(thread.id);
-        }}
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          color: "#aaa"
-        }}
-      >
-        🗑️
-      </button>
-    </div>
   );
 }
