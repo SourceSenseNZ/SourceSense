@@ -530,18 +530,19 @@ function ThreadItem({
 
   async function saveRename() {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!session) {
-      console.log("No session found");
+    if (!user) {
+      console.log("User not authenticated");
       return;
     }
 
     const { error } = await supabase
       .from("threads")
       .update({ title })
-      .eq("id", thread.id);
+      .eq("id", thread.id)
+      .eq("user_id", user.id); // ✅ extra safety condition
 
     if (error) {
       console.log("Rename error:", error);
