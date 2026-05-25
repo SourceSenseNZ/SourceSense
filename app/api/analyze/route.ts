@@ -27,7 +27,12 @@ export async function POST(req: Request) {
     const { data: threadData, error: threadError } =
       await supabase
         .from("threads")
-        .insert({ user_id: userId })
+        .insert({
+          user_id: userId,
+          title: article
+            .split(".")[0]
+            .slice(0, 80)
+        })
         .select()
         .single();
 

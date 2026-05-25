@@ -5,7 +5,6 @@ import { supabase } from "@/lib/supabase";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
-  type CSSProperties,
   type Dispatch,
   type SetStateAction,
   useCallback,
@@ -44,14 +43,6 @@ const featureCards = [
     description: "Turn long-form articles into a quick, readable editorial snapshot.",
   },
 ];
-
-const iconButtonStyle: CSSProperties = {
-  background: "none",
-  border: "none",
-  cursor: "pointer",
-  color: "#aaa",
-  fontSize: "14px",
-};
 
 export default function Home() {
   const router = useRouter();
@@ -518,56 +509,18 @@ function ThreadItem({
   fetchThreads,
   setMessages,
 }: ThreadItemProps) {
-  const [editing, setEditing] = useState(false);
-  const threadTitle = thread.title || "";
-  const [lastThreadTitle, setLastThreadTitle] = useState(threadTitle);
-  const [title, setTitle] = useState(threadTitle);
-
-  if (threadTitle !== lastThreadTitle) {
-    setLastThreadTitle(threadTitle);
-    setTitle(threadTitle);
-  }
-
-  async function saveRename() {
-    console.log("Saving rename for thread:", thread.id);
-    console.log("New title:", title);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      console.log("User not authenticated");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("threads")
-      .update({ title })
-      .eq("id", thread.id)
-      .eq("user_id", user.id); // ✅ extra safety condition
-
-    if (error) {
-      console.log("Rename error:", error);
-      return;
-    }
-
-    await fetchThreads();
-    setEditing(false);
-  }
-
-  async function deleteThread() {
+  async function deleteThread(threadId: string) {
     await supabase
       .from("messages")
       .delete()
-      .eq("thread_id", thread.id);
+      .eq("thread_id", threadId);
 
     await supabase
       .from("threads")
       .delete()
-      .eq("id", thread.id);
+      .eq("id", threadId);
 
-    if (activeThreadId === thread.id) {
+    if (activeThreadId === threadId) {
       setMessages([]);
       setActiveThreadId(null);
     }
@@ -588,77 +541,38 @@ function ThreadItem({
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
+        cursor: "pointer"
+      }}
+      onClick={() => {
+        setActiveThreadId(thread.id);
+        fetchMessages(thread.id);
       }}
     >
-      {editing ? (
-        <>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                saveRename();
-              }
-              if (e.key === "Escape") {
-                setEditing(false);
-                setTitle(thread.title || "");
-              }
-            }}
-            autoFocus
-            style={{
-              backgroundColor: "#2f3037",
-              border: "1px solid #40ace9",
-              color: "white",
-              borderRadius: "6px",
-              padding: "4px 8px",
-              flex: 1
-            }}
-          />
-          <button
-            onClick={saveRename}
-            style={{
-              background: "#40ace9",
-              border: "none",
-              color: "white",
-              padding: "4px 8px",
-              borderRadius: "6px",
-              cursor: "pointer"
-            }}
-          >
-            Save
-          </button>
-        </>
-      ) : (
-        <span
-          onClick={() => {
-            setActiveThreadId(thread.id);
-            fetchMessages(thread.id);
-          }}
-          style={{ flex: 1, cursor: "pointer" }}
-        >
-          {thread.title || "Untitled"}
-        </span>
-      )}
+      <span
+        style={{
+          flex: 1,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis"
+        }}
+      >
+        {thread.title || "Untitled"}
+      </span>
 
-      <div style={{ display: "flex", gap: "8px" }}>
-        <button
-          onClick={() => {
-            setTitle(threadTitle);
-            setEditing(true);
-          }}
-          style={iconButtonStyle}
-        >
-          ✏️
-        </button>
-
-        <button
-          onClick={deleteThread}
-          style={iconButtonStyle}
-        >
-          🗑️
-        </button>
-      </div>
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          deleteThread(thread.id);
+        }}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          color: "#aaa"
+        }}
+      >
+        🗑️
+      </button>
     </div>
   );
 }
