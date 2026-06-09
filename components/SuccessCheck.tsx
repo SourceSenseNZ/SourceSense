@@ -6,7 +6,7 @@ export default function SuccessCheck() {
           width: "60px",
           height: "60px",
           borderRadius: "50%",
-          background: "linear-gradient(135deg, #c54a16 0%, #ff6a1a 100%)",
+          backgroundColor: "#40ace9",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",

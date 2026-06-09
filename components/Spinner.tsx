@@ -3,7 +3,7 @@ export default function Spinner() {
     <div
       style={{
         border: "3px solid #2f3037",
-        borderTop: "3px solid #ff6a1a",
+        borderTop: "3px solid #40ace9",
         borderRadius: "50%",
         width: "20px",
         height: "20px",

@@ -460,9 +460,9 @@ export default function Home() {
                           maxWidth: "75%",
                           padding: "14px 18px",
                           borderRadius: "14px",
-                          background:
+                          backgroundColor:
                             msg.role === "user"
-                              ? "linear-gradient(135deg, #c54a16 0%, #ff6a1a 100%)"
+                              ? "#40ace9"
                               : "#2f3037",
                           color:
                             msg.role === "user"
