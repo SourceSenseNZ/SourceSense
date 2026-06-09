@@ -132,7 +132,7 @@ export default function AuthPage() {
                             ? "#ff5c5c"
                             : passwordStrength < 100
                               ? "#facc15"
-                              : "#40ace9",
+                              : "#ff6a1a",
                       }}
                     />
                   </div>
@@ -185,9 +185,9 @@ function Button({ children, onClick, variant = "primary", disabled = false }: Bu
         minHeight: "45px",
         padding: "12px",
         borderRadius: "10px",
-        border: variant === "secondary" ? "1px solid #40ace9" : "none",
-        backgroundColor: variant === "secondary" ? "transparent" : "#40ace9",
-        color: variant === "secondary" ? "#40ace9" : "white",
+        border: variant === "secondary" ? "1px solid #ff6a1a" : "none",
+        background: variant === "secondary" ? "transparent" : "linear-gradient(135deg, #c54a16 0%, #ff6a1a 100%)",
+        color: variant === "secondary" ? "#ff6a1a" : "white",
         marginBottom: "15px",
         cursor: disabled ? "not-allowed" : "pointer",
         fontWeight: 600,
@@ -246,7 +246,7 @@ function SuccessCheck() {
         width: 60,
         height: 60,
         borderRadius: "50%",
-        backgroundColor: "#40ace9",
+        background: "linear-gradient(135deg, #c54a16 0%, #ff6a1a 100%)",
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
@@ -283,7 +283,7 @@ const cardStyle: CSSProperties = {
 const backLink: CSSProperties = {
   textAlign: "center",
   cursor: "pointer",
-  color: "#40ace9",
+  color: "#ff6a1a",
   marginTop: "10px",
 };
 

@@ -1,9 +1,9 @@
 @import "tailwindcss";
 
 :root {
-  --accent-strong: #40ace9;
-  --accent-soft: rgba(64, 172, 233, 0.12);
-  --accent-border: rgba(64, 172, 233, 0.2);
+  --accent-strong: #ff6a1a;
+  --accent-soft: rgba(255, 106, 26, 0.12);
+  --accent-border: rgba(255, 106, 26, 0.2);
   --app-background: #f5f7fb;
   --app-foreground: #2e2e2e;
   --app-muted: #5f6b76;
@@ -34,8 +34,32 @@
 @theme inline {
   --color-background: var(--app-background);
   --color-foreground: var(--app-foreground);
+
+  /* SourceSense Gradient Tokens */
+  --gradient-sourcesense-main: linear-gradient(
+    135deg,
+    #0f2a24 0%,
+    #1f3d35 25%,
+    #c54a16 65%,
+    #ff6a1a 100%
+  );
+
+  --gradient-sourcesense-accent: linear-gradient(
+    135deg,
+    #c54a16 0%,
+    #ff6a1a 100%
+  );
+
   --font-sans: "Inter", "Sohne", "SF Pro Text", "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", "SF Mono", "Consolas", "Liberation Mono", monospace;
+}
+
+.bg-sourcesense-main {
+  background: var(--gradient-sourcesense-main);
+}
+
+.bg-sourcesense-accent {
+  background: var(--gradient-sourcesense-accent);
 }
 
 * {
@@ -45,8 +69,8 @@
 html {
   min-height: 100%;
   background:
-    radial-gradient(circle at top left, rgba(64, 172, 233, 0.18), transparent 28%),
-    radial-gradient(circle at bottom right, rgba(64, 172, 233, 0.1), transparent 24%),
+    radial-gradient(circle at top left, rgba(255, 106, 26, 0.16), transparent 28%),
+    radial-gradient(circle at bottom right, rgba(15, 42, 36, 0.12), transparent 24%),
     var(--app-background);
 }
 
@@ -68,7 +92,7 @@ textarea {
 }
 
 ::selection {
-  background: rgba(64, 172, 233, 0.28);
+  background: rgba(255, 106, 26, 0.28);
   color: var(--app-foreground);
 }
 
@@ -78,5 +102,5 @@ textarea::-webkit-scrollbar {
 
 textarea::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  background: rgba(64, 172, 233, 0.34);
+  background: rgba(255, 106, 26, 0.34);
 }

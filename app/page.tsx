@@ -460,9 +460,9 @@ export default function Home() {
                           maxWidth: "75%",
                           padding: "14px 18px",
                           borderRadius: "14px",
-                          backgroundColor:
+                          background:
                             msg.role === "user"
-                              ? "#40ace9"
+                              ? "linear-gradient(135deg, #c54a16 0%, #ff6a1a 100%)"
                               : "#2f3037",
                           color:
                             msg.role === "user"
@@ -526,7 +526,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={handleAnalyze}
-                  className="rounded-2xl bg-[var(--accent-strong)] px-6 py-3 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(64,172,233,0.28)] transition hover:-translate-y-0.5 hover:brightness-105"
+                  className="bg-sourcesense-accent text-white font-semibold px-6 py-3 rounded-xl transition-all duration-300 hover:brightness-110 hover:-translate-y-1 hover:shadow-[0_0_25px_rgba(255,106,26,0.4)] shadow-lg"
                 >
                   Analyze article
                 </button>
