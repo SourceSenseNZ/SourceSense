@@ -42,6 +42,9 @@ export default function Home() {
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const [theme, setTheme] = useState<ThemeMode>("auto");
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  // New states for requested UX
+  const [heroVisible, setHeroVisible] = useState(true);
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   // Theme init from localStorage client-side only
   useEffect(() => {
@@ -58,7 +61,6 @@ export default function Home() {
     if (!user) return;
     setUserEmail(user.email || null);
 
-    // Prefer API route (uses service role, RLS-safe), fallback to direct supabase query
     try {
       const {
         data: { session },
@@ -77,7 +79,6 @@ export default function Home() {
       }
     } catch {}
 
-    // Fallback: direct query (requires RLS disabled or policy)
     const { data, error } = await supabase
       .from("threads")
       .select("*")
@@ -109,7 +110,6 @@ export default function Home() {
       }
     } catch {}
 
-    // Fallback direct
     const { data, error } = await supabase
       .from("messages")
       .select("*")
@@ -138,7 +138,6 @@ export default function Home() {
       });
       if (!res.ok) throw new Error("API delete failed");
     } catch {
-      // Fallback direct delete
       await supabase.from("messages").delete().eq("thread_id", threadId);
       await supabase.from("threads").delete().eq("id", threadId);
     }
@@ -182,11 +181,36 @@ export default function Home() {
     }
   }, [messages, activeThreadId]);
 
+  // Auto-hide hero when input focused or has content
+  useEffect(() => {
+    if (isInputFocused || input.trim().length > 0) {
+      setHeroVisible(false);
+    }
+  }, [isInputFocused, input]);
+
   function handleNewAnalysis() {
     setActiveThreadId(null);
     setMessages([]);
     setInput("");
     setChatInput("");
+    setHeroVisible(true);
+    setIsInputFocused(false);
+  }
+
+  function handleInputFocus() {
+    setIsInputFocused(true);
+    setHeroVisible(false);
+  }
+
+  function handleInputBlur() {
+    setIsInputFocused(false);
+    // Only show hero again if input is empty
+    if (!input.trim()) {
+      // small delay so it doesn't flicker when clicking analyze button
+      setTimeout(() => {
+        if (!input.trim() && !loading) setHeroVisible(true);
+      }, 150);
+    }
   }
 
   async function handleAnalyze() {
@@ -230,6 +254,7 @@ export default function Home() {
         await fetchThreads();
         await fetchMessages(data.threadId);
         setInput("");
+        setHeroVisible(false);
       }
     } catch (e: any) {
       alert(`Error: ${e.message}`);
@@ -281,11 +306,9 @@ export default function Home() {
         throw new Error(data.error || "Chat failed");
       }
 
-      // Re-fetch full thread to get saved messages
       await fetchMessages(activeThreadId);
     } catch (e: any) {
       alert(`Chat error: ${e.message}`);
-      // Rollback optimistic
       setMessages((prev) => prev.filter((m) => m.id !== optimisticUserMsg.id));
     } finally {
       setChatLoading(false);
@@ -303,37 +326,35 @@ export default function Home() {
   return (
     <main className="h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">
       <div className="flex h-screen">
-        {/* Sidebar */}
+        {/* Sidebar - condensed */}
         {sidebarOpen && (
-          <aside className="hidden w-[300px] shrink-0 flex-col bg-[var(--sidebar-background)] px-5 py-6 md:flex"
+          <aside className="hidden w-[280px] shrink-0 flex-col bg-[var(--sidebar-background)] px-4 py-5 md:flex"
             style={{ height: "100vh", overflowY: "auto", borderRight: "1px solid var(--app-border)" }}
           >
-            <div className="mb-8">
+            <div className="mb-6">
               <Logo variant="full" />
-              <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
-                Media Intelligence • v2.0
+              <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
+                Understand. More.
               </p>
             </div>
 
             <button
               onClick={handleNewAnalysis}
-              className="mb-6 group flex w-full items-center justify-between rounded-2xl border border-[var(--app-border-strong)] bg-[var(--surface-raised)] px-4 py-3 text-left text-sm font-medium shadow-[var(--panel-shadow)] transition hover:border-[var(--accent-strong)]"
+              className="mb-5 group flex w-full items-center gap-2 rounded-xl border border-[var(--app-border-strong)] bg-[var(--surface-raised)] px-3 py-2.5 text-sm font-medium shadow-sm transition hover:border-[var(--accent-strong)]"
             >
-              <span className="flex items-center gap-2">
-                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-sourcesense-accent text-white">+</span>
-                New analysis
-              </span>
-              <span className="text-[var(--app-muted)] group-hover:text-[var(--accent-strong)]">⌘N</span>
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-sourcesense-accent text-white text-xs">+</span>
+              New analysis
+              <span className="ml-auto text-xs text-[var(--app-muted)]">⌘N</span>
             </button>
 
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">Recent</p>
-              <span className="rounded-full bg-[var(--surface-soft)] px-2.5 py-1 text-xs text-[var(--app-muted)]">{threads.length}</span>
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[var(--app-muted)]">Recent</p>
+              <span className="rounded-full bg-[var(--surface-soft)] px-2 py-0.5 text-[11px] text-[var(--app-muted)]">{threads.length}</span>
             </div>
 
             <div className="flex-1 space-y-1 overflow-y-auto">
               {threads.length === 0 ? (
-                <p className="px-2 py-4 text-sm text-[var(--app-muted)]">No analyses yet. Paste an article to start.</p>
+                <p className="px-2 py-3 text-xs text-[var(--app-muted)]">No analyses yet.</p>
               ) : (
                 threads.map((thread) => (
                   <div
@@ -342,20 +363,19 @@ export default function Home() {
                       setActiveThreadId(thread.id);
                       fetchMessages(thread.id);
                     }}
-                    className={`group flex cursor-pointer items-center justify-between rounded-xl px-3 py-3 text-sm transition ${
+                    className={`group flex cursor-pointer items-center justify-between rounded-lg px-2.5 py-2.5 text-sm transition ${
                       activeThreadId === thread.id
                         ? "bg-[var(--surface-raised)] border border-[var(--app-border)] shadow-sm"
                         : "hover:bg-[var(--surface-raised)]"
                     }`}
                   >
-                    <span className="min-w-0 flex-1 truncate pr-2">{thread.title || "Untitled analysis"}</span>
+                    <span className="min-w-0 flex-1 truncate pr-2 text-[13px]">{thread.title || "Untitled"}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteThread(thread.id);
                       }}
-                      className="ml-2 hidden shrink-0 rounded-lg p-1 text-[var(--app-muted)] hover:bg-red-500/10 hover:text-red-500 group-hover:inline-flex"
-                      aria-label="Delete"
+                      className="ml-1 hidden shrink-0 rounded p-1 text-[var(--app-muted)] hover:bg-red-500/10 hover:text-red-500 group-hover:inline-flex"
                     >
                       🗑️
                     </button>
@@ -364,17 +384,18 @@ export default function Home() {
               )}
             </div>
 
-            <div className="mt-6 space-y-3">
-              <div className="rounded-3xl border border-[var(--app-border)] bg-[var(--surface-soft)] p-4">
-                <p className="text-sm font-semibold">How it works</p>
-                <p className="mt-1 text-xs leading-5 text-[var(--app-muted)]">
-                  Structured AI scores bias 0-100, flags loaded language, detects framing, checks sourcing, and saves to Supabase.
-                </p>
+            {/* Condensed info footer */}
+            <div className="mt-4">
+              <div className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--surface-soft)] px-3 py-2.5">
+                <span className="text-sm">💡</span>
+                <span className="text-[11px] leading-4 text-[var(--app-muted)]">
+                  Structured AI bias scan
+                </span>
               </div>
               {userEmail && (
-                <div className="flex items-center justify-between rounded-2xl border border-[var(--app-border)] bg-[var(--surface-raised)] px-3 py-2">
-                  <span className="truncate text-xs text-[var(--app-muted)]">{userEmail}</span>
-                  <button onClick={handleLogout} className="text-xs font-medium text-[var(--accent-strong)] hover:underline">
+                <div className="mt-2 flex items-center justify-between px-1">
+                  <span className="truncate text-[11px] text-[var(--app-muted)] max-w-[150px]">{userEmail}</span>
+                  <button onClick={handleLogout} className="text-[11px] font-medium text-[var(--accent-strong)] hover:underline">
                     Sign out
                   </button>
                 </div>
@@ -389,33 +410,31 @@ export default function Home() {
             <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
               <button
                 onClick={() => setSidebarOpen((o) => !o)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--surface-raised)]"
-                aria-label="Toggle sidebar"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--surface-raised)]"
               >
                 ☰
               </button>
 
-              <div className={sidebarOpen ? "hidden w-36 md:hidden" : "w-36 sm:w-44"}>
+              <div className={sidebarOpen ? "hidden w-32 md:hidden" : "w-32 sm:w-40"}>
                 <Logo variant="full" />
               </div>
 
               {activeThread ? (
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold">{activeThread.title}</p>
-                  <p className="text-xs text-[var(--app-muted)]">{messages.length} messages • Structured analysis</p>
+                  <p className="text-xs text-[var(--app-muted)]">{messages.length} messages</p>
                 </div>
               ) : (
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">Live workspace</p>
-                  <p className="truncate text-sm text-[var(--app-muted)]">Real AI analysis • JSON storage • Multi-message chat</p>
                 </div>
               )}
 
-              <div className="ml-auto flex items-center gap-2">
+              <div className="ml-auto">
                 <select
                   value={theme}
                   onChange={(e) => setTheme(e.target.value as ThemeMode)}
-                  className="rounded-xl border border-[var(--app-border)] bg-[var(--surface-raised)] px-3 py-2 text-xs font-medium outline-none"
+                  className="rounded-xl border border-[var(--app-border)] bg-[var(--surface-raised)] px-3 py-1.5 text-xs font-medium outline-none"
                 >
                   <option value="auto">Auto</option>
                   <option value="light">Light</option>
@@ -428,67 +447,67 @@ export default function Home() {
           <div className="flex-1 p-4 sm:p-6" ref={chatContainerRef}>
             {!activeThreadId ? (
               <>
-                {/* Intro Hero */}
-                <div className="grid gap-6 xl:grid-cols-[1.2fr_380px]">
-                  <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-6 shadow-[var(--panel-shadow)] sm:p-8">
-                    <span className="mb-4 inline-flex rounded-full border border-[var(--accent-border)] bg-[var(--accent-soft)] px-4 py-1.5 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-strong)]">
-                      Now with gpt-4.1-mini + structured JSON
-                    </span>
-                    <h2 className="max-w-2xl text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
-                      Understand how a story is framed before you trust it.
-                    </h2>
-                    <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--app-muted)] sm:text-lg">
-                      SourceSense upgraded: real OpenAI Responses API, bias 0-100 scoring, loaded language detection, framing analysis, and persistent multi-turn threads.
-                    </p>
+                {/* Hero - now hides when input focused */}
+                <AnimatePresence>
+                  {heroVisible && (
+                    <motion.div
+                      initial={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+                      transition={{ duration: 0.35, ease: "easeInOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-6 shadow-[var(--panel-shadow)] sm:p-8 mb-6">
+                        <h2 className="max-w-3xl text-4xl font-semibold tracking-[-0.04em] sm:text-5xl">
+                          Understand how a story is framed before you trust it.
+                        </h2>
+                        <p className="mt-4 max-w-2xl text-base leading-7 text-[var(--app-muted)] sm:text-lg">
+                          Paste any news article. SourceSense surfaces bias, framing, and loaded language in seconds.
+                        </p>
 
-                    <div className="mt-8 grid gap-4 md:grid-cols-3">
-                      {featureCards.map((card) => (
-                        <article key={card.title} className="rounded-[24px] border border-[var(--app-border)] bg-[var(--surface-soft)] p-5">
-                          <div className="mb-3 text-xl">{card.icon}</div>
-                          <h3 className="text-sm font-semibold">{card.title}</h3>
-                          <p className="mt-2 text-xs leading-5 text-[var(--app-muted)]">{card.description}</p>
-                        </article>
-                      ))}
-                    </div>
+                        <div className="mt-8 grid gap-4 md:grid-cols-3">
+                          {featureCards.map((card) => (
+                            <article key={card.title} className="rounded-[20px] border border-[var(--app-border)] bg-[var(--surface-soft)] p-5">
+                              <div className="mb-2 text-lg">{card.icon}</div>
+                              <h3 className="text-sm font-semibold">{card.title}</h3>
+                              <p className="mt-1.5 text-xs leading-5 text-[var(--app-muted)]">{card.description}</p>
+                            </article>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Input - clicking this hides hero */}
+                <div className="rounded-[24px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-4 shadow-[var(--panel-shadow)] sm:p-5">
+                  <div className="mb-3 flex items-center justify-between">
+                    <h3 className="text-base font-semibold">
+                      {heroVisible ? "Paste an article to analyze" : "Ready to analyze"}
+                    </h3>
+                    {!heroVisible && (
+                      <button
+                        onClick={() => setHeroVisible(true)}
+                        className="text-xs text-[var(--app-muted)] hover:text-[var(--accent-strong)] hover:underline"
+                      >
+                        Show intro ↟
+                      </button>
+                    )}
                   </div>
-
-                  <aside className="rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-6 shadow-[var(--panel-shadow)]">
-                    <div className="rounded-[24px] border border-[var(--accent-border)] bg-[var(--accent-soft)] p-5">
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--accent-strong)]">DB Status</p>
-                      <p className="mt-2 text-xl font-semibold">RLS Ready • JSON Storage</p>
-                      <ul className="mt-3 list-disc pl-4 text-xs leading-5 text-[var(--app-muted)]">
-                        <li>threads: id, user_id, title</li>
-                        <li>messages: id, thread_id, role, content, analysis_json jsonb</li>
-                        <li>Service role key in backend only</li>
-                      </ul>
-                    </div>
-                    <div className="mt-4 rounded-[20px] bg-[var(--surface-soft)] p-4 text-xs leading-5 text-[var(--app-muted)]">
-                      <p className="font-semibold text-[var(--app-foreground)]">What you get:</p>
-                      • Bias score gauge<br/>• Leaning badge (Centre, Left, Right...)<br/>• Framing cards with quotes<br/>• Loaded language severity<br/>• Missing context + sources to check
-                    </div>
-                  </aside>
-                </div>
-
-                {/* Input */}
-                <div className="mt-6 rounded-[32px] border border-[var(--app-border)] bg-[var(--surface-raised)] p-4 shadow-[var(--panel-shadow)] sm:p-6">
-                  <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-xl font-semibold tracking-[-0.02em]">Paste an article to analyze</h3>
-                    <span className="rounded-full border border-[var(--app-border)] bg-[var(--surface-soft)] px-3 py-1 text-xs text-[var(--app-muted)]">gpt-4.1-mini • structured</span>
-                  </div>
+                  
                   <textarea
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
-                    placeholder="Paste full news article here (min 50 chars). Include headline if possible. The AI will extract framing, loaded language, missing context, etc."
-                    className="min-h-[220px] w-full rounded-[24px] border border-[var(--app-border)] bg-[var(--input-background)] px-5 py-4 text-[15px] leading-7 outline-none placeholder:text-[var(--app-muted)] focus:border-[var(--accent-strong)]"
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                    placeholder="Paste full news article here (min 50 chars). Include headline if possible..."
+                    className="min-h-[220px] w-full rounded-[20px] border border-[var(--app-border)] bg-[var(--input-background)] px-4 py-3 text-[15px] leading-7 outline-none placeholder:text-[var(--app-muted)] focus:border-[var(--accent-strong)] focus:ring-2 focus:ring-[var(--accent-soft)] transition"
                   />
-                  <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <p className="text-xs text-[var(--app-muted)]">
-                      Backend uses SUPABASE_SERVICE_ROLE_KEY. Mock fallback if OPENAI_API_KEY missing.
-                    </p>
+                  
+                  <div className="mt-3 flex items-center justify-end">
                     <button
                       onClick={handleAnalyze}
                       disabled={!input.trim() || loading}
-                      className="inline-flex items-center justify-center rounded-xl bg-sourcesense-accent px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-50"
+                      className="inline-flex items-center justify-center rounded-xl bg-sourcesense-accent px-5 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:brightness-110 disabled:opacity-50"
                     >
                       {loading ? (
                         <>
@@ -501,10 +520,16 @@ export default function Home() {
                     </button>
                   </div>
                 </div>
+
+                {/* Subtle hint when hero hidden */}
+                {!heroVisible && !input.trim() && (
+                  <p className="mt-3 text-center text-xs text-[var(--app-muted)]">
+                    Intro hidden while you type. Press the input to focus. Click "Show intro" to bring it back.
+                  </p>
+                )}
               </>
             ) : (
               <div className="mx-auto max-w-5xl space-y-6">
-                {/* Messages + Analysis */}
                 {messages.map((msg) => {
                   if (msg.role === "user") {
                     return (
@@ -517,7 +542,7 @@ export default function Home() {
                         <div className="max-w-[85%] rounded-[20px] rounded-br-[6px] bg-[#40ace9] px-5 py-3 text-sm leading-6 text-white shadow">
                           {msg.content.length > 600 ? (
                             <details>
-                              <summary className="cursor-pointer font-medium">Original article ({msg.content.length} chars) - click to expand</summary>
+                              <summary className="cursor-pointer font-medium">Original article ({msg.content.length} chars) - expand</summary>
                               <p className="mt-3 whitespace-pre-wrap">{msg.content}</p>
                             </details>
                           ) : (
@@ -528,7 +553,6 @@ export default function Home() {
                     );
                   }
 
-                  // Assistant
                   const analysis = msg.analysis_json as ArticleAnalysis | null;
                   if (analysis && analysis.biasScore !== undefined) {
                     return (
@@ -538,7 +562,6 @@ export default function Home() {
                     );
                   }
 
-                  // Regular chat reply
                   return (
                     <motion.div key={msg.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="flex justify-start">
                       <div className="max-w-[85%] rounded-[20px] rounded-bl-[6px] border border-[var(--app-border)] bg-[var(--surface-raised)] px-5 py-4 text-sm leading-6 text-[var(--app-foreground)] shadow-sm">
@@ -551,7 +574,7 @@ export default function Home() {
                 {loading && (
                   <div className="flex justify-start">
                     <div className="rounded-[20px] border border-[var(--app-border)] bg-[var(--surface-raised)] px-5 py-4 text-sm italic text-[var(--app-muted)] animate-pulse">
-                      Running structured analysis with gpt-4.1-mini...
+                      Analyzing...
                     </div>
                   </div>
                 )}
@@ -568,7 +591,7 @@ export default function Home() {
                             handleChatSend();
                           }
                         }}
-                        placeholder="Ask follow-up: e.g. 'What bias techniques are strongest?' or 'What context is missing?'"
+                        placeholder="Follow-up question..."
                         className="flex-1 rounded-xl border border-[var(--app-border)] bg-[var(--input-background)] px-4 py-3 text-sm outline-none focus:border-[var(--accent-strong)]"
                         disabled={chatLoading}
                       />
@@ -580,9 +603,6 @@ export default function Home() {
                         {chatLoading ? "..." : "Send"}
                       </button>
                     </div>
-                    <p className="mt-2 px-1 text-[11px] text-[var(--app-muted)]">
-                      Chat uses thread history. Press Enter to send, Shift+Enter for newline.
-                    </p>
                   </div>
                 )}
               </div>
@@ -590,12 +610,6 @@ export default function Home() {
           </div>
         </section>
       </div>
-
-      <style jsx>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </main>
   );
 }
