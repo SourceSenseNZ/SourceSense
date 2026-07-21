@@ -320,8 +320,38 @@ export default function Home() {
     router.push("/login");
   }
 
+  async function handleDeleteAccount() {
+    const first = confirm("DELETE YOUR ACCOUNT? This will permanently delete ALL your analyses and your login. This cannot be undone. Continue?");
+    if (!first) return;
+    const second = confirm("FINAL CHECK: Are you REALLY sure? All your data will be gone forever.");
+    if (!second) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!user) return;
+
+    try {
+      const res = await fetch(`/api/account/delete?userId=${user.id}`, {
+        method: "DELETE",
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {},
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Delete failed");
+
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch (e: any) {
+      alert(`Delete failed: ${e.message}`);
+    }
+  }
+
   const activeThread = threads.find((t) => t.id === activeThreadId);
   const hasAnalysis = messages.some((m) => m.analysis_json);
+  const isAdminUser = userEmail ? ["romancrow9@gmail.com", "roman@romancrow.com"].includes(userEmail.toLowerCase()) : false;
 
   return (
     <main className="h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">
@@ -384,8 +414,8 @@ export default function Home() {
               )}
             </div>
 
-            {/* Condensed info footer */}
-            <div className="mt-4">
+            {/* Condensed info footer + account controls */}
+            <div className="mt-4 space-y-2">
               <div className="flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--surface-soft)] px-3 py-2.5">
                 <span className="text-sm">💡</span>
                 <span className="text-[11px] leading-4 text-[var(--app-muted)]">
@@ -393,12 +423,28 @@ export default function Home() {
                 </span>
               </div>
               {userEmail && (
-                <div className="mt-2 flex items-center justify-between px-1">
-                  <span className="truncate text-[11px] text-[var(--app-muted)] max-w-[150px]">{userEmail}</span>
-                  <button onClick={handleLogout} className="text-[11px] font-medium text-[var(--accent-strong)] hover:underline">
-                    Sign out
-                  </button>
-                </div>
+                <>
+                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--surface-raised)] px-3 py-2">
+                    <p className="truncate text-[11px] font-medium text-[var(--app-foreground)] max-w-[200px]">{userEmail}</p>
+                    <div className="mt-2 flex items-center gap-3">
+                      <button onClick={handleLogout} className="text-[11px] font-medium text-[var(--accent-strong)] hover:underline">
+                        Sign out
+                      </button>
+                      <span className="text-[var(--app-border)]">•</span>
+                      <button onClick={handleDeleteAccount} className="text-[11px] font-medium text-red-500 hover:text-red-600 hover:underline">
+                        Delete account
+                      </button>
+                    </div>
+                    {isAdminUser && (
+                      <button
+                        onClick={() => router.push("/admin")}
+                        className="mt-2 w-full rounded-lg bg-[var(--app-foreground)] py-1.5 text-[11px] font-semibold text-[var(--app-background)] hover:opacity-90"
+                      >
+                        Admin panel → Manage users
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           </aside>
