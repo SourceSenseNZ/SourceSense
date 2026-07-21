@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Logo from "@/components/Logo";
 import { supabase } from "@/lib/supabase";
 
-type AuthMode = "choice" | "login" | "signup" | "confirm";
+type AuthMode = "choice" | "login" | "signup" | "verify";
 
 type ButtonProps = {
   children: ReactNode;
@@ -26,6 +26,7 @@ export default function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
@@ -33,6 +34,7 @@ export default function AuthPage() {
 
   async function handleLogin() {
     setMessage("");
+    setInfoMessage("");
     setLoading(true);
 
     try {
@@ -42,7 +44,17 @@ export default function AuthPage() {
       });
 
       if (error) {
-        setMessage("Invalid email or password.");
+        // Better error for unverified email
+        const msg = error.message.toLowerCase();
+        if (msg.includes("email not confirmed") || msg.includes("confirmation") || msg.includes("verified")) {
+          setMessage("Please verify your email first. Check your inbox for the verification link we sent to " + email);
+          return;
+        }
+        if (msg.includes("invalid login") || msg.includes("invalid credentials")) {
+          setMessage("Invalid email or password. If you just signed up, please verify your email first.");
+          return;
+        }
+        setMessage(error.message);
         return;
       }
 
@@ -54,10 +66,20 @@ export default function AuthPage() {
 
   async function handleSignup() {
     setMessage("");
+    setInfoMessage("");
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      if (!email || !password) {
+        setMessage("Please enter email and password");
+        return;
+      }
+      if (password.length < 6) {
+        setMessage("Password must be at least 6 characters");
+        return;
+      }
+
+      const { error, data } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -70,7 +92,34 @@ export default function AuthPage() {
         return;
       }
 
-      setMode("confirm");
+      // Even if user already exists, Supabase may return success but no session
+      // So always go to verification page
+      setMode("verify");
+      setInfoMessage("");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleResend() {
+    setMessage("");
+    setInfoMessage("");
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+        options: {
+          emailRedirectTo: "https://source-sense.vercel.app",
+        },
+      });
+
+      if (error) {
+        setMessage(error.message);
+        return;
+      }
+
+      setInfoMessage(`Verification email resent to ${email}. Please check your inbox and spam folder.`);
     } finally {
       setLoading(false);
     }
@@ -102,6 +151,9 @@ export default function AuthPage() {
               <Button variant="secondary" onClick={() => setMode("signup")} disabled={loading}>
                 Create Account
               </Button>
+              <p style={{textAlign: "center", color: "#777", fontSize: "12px", marginTop: "10px"}}>
+                Secure auth via Supabase
+              </p>
             </motion.div>
           )}
 
@@ -112,10 +164,13 @@ export default function AuthPage() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
             >
+              <h2 style={{margin: "0 0 20px", fontSize: "18px", fontWeight: 600}}>
+                {mode === "login" ? "Welcome back" : "Create your account"}
+              </h2>
               <Input type="email" placeholder="Email" value={email} onChange={setEmail} />
               <Input
                 type="password"
-                placeholder="Password"
+                placeholder="Password (min 6 characters)"
                 value={password}
                 onChange={setPassword}
               />
@@ -136,6 +191,9 @@ export default function AuthPage() {
                       }}
                     />
                   </div>
+                  <p style={{fontSize: "11px", color: "#888", marginTop: "6px"}}>
+                    {passwordStrength < 50 ? "Weak password" : passwordStrength < 100 ? "Medium" : "Strong"} - Use 10+ chars for best security
+                  </p>
                 </div>
               )}
 
@@ -146,28 +204,98 @@ export default function AuthPage() {
               <p style={backLink} onClick={() => setMode("choice")}>
                 Back
               </p>
+              {mode === "login" && (
+                <p style={{textAlign: "center", color: "#666", fontSize: "11px", marginTop: "12px"}}>
+                  Forgot password? Contact support. Email verification required before first login.
+                </p>
+              )}
             </motion.div>
           )}
 
-          {mode === "confirm" && (
+          {mode === "verify" && (
             <motion.div
-              key="confirm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
+              key="verify"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
             >
-              <SuccessCheck />
-              <h2 style={{ textAlign: "center", margin: "0 0 10px" }}>Account Created</h2>
-              <p style={{ textAlign: "center", color: "#aaa", margin: "0 0 25px" }}>
-                You can now sign in.
-              </p>
+              <div style={{textAlign: "center", marginBottom: "10px"}}>
+                <div style={{
+                  width: "72px",
+                  height: "72px",
+                  borderRadius: "50%",
+                  background: "rgba(64,172,233,0.15)",
+                  border: "1px solid rgba(64,172,233,0.3)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 16px",
+                  fontSize: "32px"
+                }}>
+                  ✉️
+                </div>
+                <h2 style={{ margin: "0 0 8px", fontSize: "20px", fontWeight: 700 }}>Check your email</h2>
+                <p style={{ margin: "0 auto 16px", color: "#bbb", fontSize: "14px", lineHeight: "1.5", maxWidth: "300px" }}>
+                  We've sent a verification link to:
+                </p>
+                <p style={{
+                  margin: "0 auto 20px",
+                  background: "#2f3037",
+                  border: "1px solid #3a3b42",
+                  borderRadius: "8px",
+                  padding: "8px 12px",
+                  color: "#40ace9",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  wordBreak: "break-all",
+                  display: "inline-block",
+                  maxWidth: "100%"
+                }}>
+                  {email}
+                </p>
+              </div>
 
-              <Button onClick={() => setMode("login")}>Continue to Login</Button>
+              <div style={{
+                background: "#2a2b32",
+                border: "1px solid #3a3b42",
+                borderRadius: "12px",
+                padding: "14px",
+                marginBottom: "20px"
+              }}>
+                <p style={{margin: "0 0 8px", fontSize: "13px", fontWeight: 600, color: "#ddd"}}>Next steps:</p>
+                <ol style={{margin: 0, paddingLeft: "18px", color: "#aaa", fontSize: "13px", lineHeight: "1.6"}}>
+                  <li>Open your inbox (and check spam folder)</li>
+                  <li>Click the verification link from SourceSense</li>
+                  <li>Come back here and sign in</li>
+                </ol>
+                <p style={{margin: "10px 0 0", fontSize: "11px", color: "#777"}}>
+                  Link expires in 1 hour. If you don't see it, click Resend below.
+                </p>
+              </div>
+
+              <Button onClick={() => setMode("login")} disabled={loading}>
+                Continue to Log In
+              </Button>
+
+              <Button variant="secondary" onClick={handleResend} disabled={loading}>
+                {loading ? <Spinner /> : "Resend verification email"}
+              </Button>
+
+              <div style={{display: "flex", justifyContent: "center", gap: "12px", marginTop: "6px"}}>
+                <span style={{...backLink, marginTop: 0}} onClick={() => setMode("signup")}>
+                  Use different email
+                </span>
+                <span style={{color: "#444"}}>•</span>
+                <span style={{...backLink, marginTop: 0}} onClick={() => setMode("choice")}>
+                  Back home
+                </span>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
 
         {message && <p style={messageStyle}>{message}</p>}
+        {infoMessage && <p style={infoStyle}>{infoMessage}</p>}
       </motion.div>
     </div>
   );
@@ -188,7 +316,7 @@ function Button({ children, onClick, variant = "primary", disabled = false }: Bu
         border: variant === "secondary" ? "1px solid #40ace9" : "none",
         backgroundColor: variant === "secondary" ? "transparent" : "#40ace9",
         color: variant === "secondary" ? "#40ace9" : "white",
-        marginBottom: "15px",
+        marginBottom: "12px",
         cursor: disabled ? "not-allowed" : "pointer",
         fontWeight: 600,
         opacity: disabled ? 0.7 : 1,
@@ -208,12 +336,13 @@ function Input({ value, onChange, ...props }: InputProps) {
       style={{
         width: "100%",
         padding: "12px",
-        marginBottom: "15px",
+        marginBottom: "12px",
         borderRadius: "10px",
         border: "1px solid #3a3b42",
         backgroundColor: "#2f3037",
         color: "white",
         boxSizing: "border-box",
+        outline: "none",
       }}
     />
   );
@@ -236,30 +365,6 @@ function Spinner() {
   );
 }
 
-function SuccessCheck() {
-  return (
-    <motion.div
-      initial={{ scale: 0 }}
-      animate={{ scale: 1 }}
-      transition={{ type: "spring", stiffness: 260, damping: 18 }}
-      style={{
-        width: 60,
-        height: 60,
-        borderRadius: "50%",
-        backgroundColor: "#40ace9",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        margin: "0 auto 20px",
-        color: "white",
-        fontSize: "28px",
-      }}
-    >
-      ✓
-    </motion.div>
-  );
-}
-
 const pageStyle: CSSProperties = {
   minHeight: "100vh",
   display: "flex",
@@ -273,24 +378,44 @@ const pageStyle: CSSProperties = {
 
 const cardStyle: CSSProperties = {
   width: "100%",
-  maxWidth: "420px",
-  padding: "40px",
+  maxWidth: "440px",
+  padding: "32px",
   backgroundColor: "#202123",
   borderRadius: "16px",
   boxShadow: "0 10px 40px rgba(0,0,0,0.4)",
+  border: "1px solid #2f3037",
 };
 
 const backLink: CSSProperties = {
   textAlign: "center",
   cursor: "pointer",
   color: "#40ace9",
-  marginTop: "10px",
+  fontSize: "13px",
+  marginTop: "4px",
 };
 
 const messageStyle: CSSProperties = {
-  margin: "5px 0 0",
+  margin: "12px 0 0",
   color: "#ffb020",
   textAlign: "center",
+  background: "rgba(255,176,32,0.1)",
+  border: "1px solid rgba(255,176,32,0.2)",
+  borderRadius: "8px",
+  padding: "10px",
+  fontSize: "13px",
+  lineHeight: "1.4",
+};
+
+const infoStyle: CSSProperties = {
+  margin: "12px 0 0",
+  color: "#40ace9",
+  textAlign: "center",
+  background: "rgba(64,172,233,0.1)",
+  border: "1px solid rgba(64,172,233,0.2)",
+  borderRadius: "8px",
+  padding: "10px",
+  fontSize: "13px",
+  lineHeight: "1.4",
 };
 
 const strengthBarContainer: CSSProperties = {
