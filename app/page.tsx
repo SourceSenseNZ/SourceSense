@@ -349,9 +349,17 @@ export default function Home() {
     }
   }
 
-  const activeThread = threads.find((t) => t.id === activeThreadId);
+    const activeThread = threads.find((t) => t.id === activeThreadId);
   const hasAnalysis = messages.some((m) => m.analysis_json);
-  const isAdminUser = userEmail ? ["romancrow9@gmail.com", "roman@romancrow.com"].includes(userEmail.toLowerCase()) : false;
+  const isAdminUser = (() => {
+    if (!userEmail) return false;
+    const lower = userEmail.toLowerCase();
+    // hardcoded fallback + env var support
+    const envAdmins = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || "").split(",").map(s => s.trim().toLowerCase()).filter(Boolean);
+    const hardcoded = ["romancrow9@gmail.com", "roman@romancrow.com", "info@sourcesense.co.nz", "admin@sourcesense.co.nz", "contact@sourcesense.co.nz", "hello@sourcesense.co.nz"];
+    const all = [...new Set([...hardcoded, ...envAdmins])];
+    return all.includes(lower);
+  })();
 
   return (
     <main className="h-screen bg-[var(--app-background)] text-[var(--app-foreground)]">

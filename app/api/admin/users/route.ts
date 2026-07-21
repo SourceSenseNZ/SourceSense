@@ -3,8 +3,14 @@ export const runtime = "nodejs";
 import { supabaseAdmin, getUserFromRequest } from "@/lib/supabaseServer";
 import { NextResponse } from "next/server";
 
-// List of admin emails - you can add more here or set ADMIN_EMAILS env
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || "romancrow9@gmail.com").split(",").map(e => e.trim().toLowerCase());
+// List of admin emails - set ADMIN_EMAILS and NEXT_PUBLIC_ADMIN_EMAILS in Vercel to add company email
+// Example: ADMIN_EMAILS=romancrow9@gmail.com,company@sourcesense.co.nz,info@sourcesense.co.nz
+const DEFAULT_ADMINS = ["romancrow9@gmail.com", "roman@romancrow.com", "info@sourcesense.co.nz", "admin@sourcesense.co.nz", "contact@sourcesense.co.nz", "hello@sourcesense.co.nz", "team@sourcesense.co.nz"];
+const ENV_ADMINS = (process.env.ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAILS || "")
+  .split(",")
+  .map(e => e.trim().toLowerCase())
+  .filter(Boolean);
+const ADMIN_EMAILS = [...new Set([...DEFAULT_ADMINS, ...ENV_ADMINS, "romancrow9@gmail.com"])];
 
 function isAdmin(email: string | undefined | null): boolean {
   if (!email) return false;
