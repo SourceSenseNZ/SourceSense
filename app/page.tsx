@@ -228,6 +228,9 @@ export default function Home() {
       data: { session },
     } = await supabase.auth.getSession();
 
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s frontend timeout to never spin forever
+
     try {
       const res = await fetch("/api/analyze", {
         method: "POST",
@@ -239,13 +242,15 @@ export default function Home() {
           article: input.trim(),
           userId: user.id,
         }),
+        signal: controller.signal,
       });
 
-      const data = await res.json();
+      clearTimeout(timeoutId);
+
+      const data = await res.json().catch(() => ({ error: "Invalid response" }));
 
       if (!res.ok) {
-        alert(`Analysis failed: ${data.error || "Unknown error"}`);
-        setLoading(false);
+        alert(`Analysis failed: ${data.error || "Unknown error"}\n\nIf this keeps happening, try a shorter article (under 1000 words).`);
         return;
       }
 
@@ -255,9 +260,17 @@ export default function Home() {
         await fetchMessages(data.threadId);
         setInput("");
         setHeroVisible(false);
+        if ((data.analysis as any)?.isMock) {
+          console.warn("Mock analysis used:", (data.analysis as any).mockReason);
+        }
       }
     } catch (e: any) {
-      alert(`Error: ${e.message}`);
+      clearTimeout(timeoutId);
+      if (e.name === "AbortError") {
+        alert("Analysis timed out after 20 seconds. This can happen on Vercel Hobby with long articles. Try a shorter article (under 600 words) or try again.\n\nIf you added money, check Vercel env OPENAI_API_KEY is valid and redeployed.");
+      } else {
+        alert(`Error: ${e.message}`);
+      }
     } finally {
       setLoading(false);
     }
