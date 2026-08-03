@@ -1,11 +1,13 @@
 export const runtime = "nodejs";
+export const maxDuration = 25; // allow up to 25s on hobby? Vercel will cap to 10s on hobby but we set higher for pro
 
 import { supabaseAdmin, getUserFromRequest } from "@/lib/supabaseServer";
-import { openai, ANALYSIS_SYSTEM_PROMPT, ANALYSIS_JSON_SCHEMA, getMockAnalysis } from "@/lib/openai";
+import { openai, ANALYSIS_SYSTEM_PROMPT, ANALYSIS_JSON_SCHEMA, getMockAnalysis, withTimeout, PRIMARY_MODEL, FALLBACK_MODEL } from "@/lib/openai";
 import { NextResponse } from "next/server";
 import type { ArticleAnalysis } from "@/lib/types";
 
 export async function POST(req: Request) {
+  const startTime = Date.now();
   try {
     const body = await req.json();
     const { article, userId: clientUserId, title: clientTitle, url } = body;
@@ -17,7 +19,9 @@ export async function POST(req: Request) {
       );
     }
 
-    // Auth: try Bearer token first (secure), fallback to clientUserId (legacy compatibility)
+    // Trim article to prevent timeout on huge articles - keep first 8000 chars for demo
+    const trimmedArticle = article.length > 8000 ? article.slice(0, 8000) + "\n\n[Truncated for analysis - original was longer]" : article;
+
     let userId = await getUserFromRequest(req);
     if (!userId && clientUserId) {
       userId = clientUserId;
@@ -29,115 +33,139 @@ export async function POST(req: Request) {
 
     const supabase = supabaseAdmin();
 
-    // Generate clean title from article or use provided
     let title = clientTitle?.trim();
     if (!title) {
-      // Take first line or first 60 chars, clean up
-      const firstLine = article.trim().split("\n")[0].trim();
+      const firstLine = trimmedArticle.trim().split("\n")[0].trim();
       if (firstLine.length > 15 && firstLine.length < 120) {
         title = firstLine.slice(0, 80);
       } else {
-        title = article.trim().slice(0, 60).replace(/\s+/g, " ").trim();
-        if (article.length > 60) title += "...";
+        title = trimmedArticle.trim().slice(0, 60).replace(/\s+/g, " ").trim();
+        if (trimmedArticle.length > 60) title += "...";
       }
     }
 
-    // 1. Create thread
     const { data: thread, error: threadError } = await supabase
       .from("threads")
-      .insert({
-        user_id: userId,
-        title: title,
-      })
+      .insert({ user_id: userId, title })
       .select()
       .single();
 
     if (threadError) {
       console.error("Thread insert error:", threadError);
-      // Common error: missing title column from legacy DB
       if (threadError.message.includes("title")) {
         return NextResponse.json(
-          {
-            error: `DB schema missing title column. Run: alter table threads add column title text; Raw: ${threadError.message}`,
-          },
+          { error: `DB needs: alter table threads add column title text; ${threadError.message}` },
           { status: 500 }
         );
       }
       return NextResponse.json({ error: threadError.message }, { status: 500 });
     }
 
-    // 2. Save user message (original article)
     const { error: userMessageError } = await supabase.from("messages").insert({
       thread_id: thread.id,
       role: "user",
-      content: article,
+      content: article, // save full original
     });
 
     if (userMessageError) {
-      console.error("User message insert error:", userMessageError);
       return NextResponse.json({ error: userMessageError.message }, { status: 500 });
     }
 
-    // 3. OpenAI Analysis - Real integration with fallback
     let analysis: ArticleAnalysis;
-
-    const hasOpenAIKey = !!process.env.OPENAI_API_KEY;
+    const hasOpenAIKey = !!process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith("sk-");
 
     if (!hasOpenAIKey) {
-      console.warn("OPENAI_API_KEY missing - using mock analysis");
-      analysis = getMockAnalysis(article) as ArticleAnalysis;
+      console.warn("OPENAI_API_KEY missing or invalid format - using mock");
+      analysis = getMockAnalysis(trimmedArticle) as ArticleAnalysis;
+      (analysis as any).isMock = true;
     } else {
       try {
-        const inputText = url
-          ? `URL: ${url}\n\nARTICLE:\n${article}`
-          : article;
+        const inputText = url ? `URL: ${url}\n\nARTICLE:\n${trimmedArticle}` : trimmedArticle;
 
-        const response = await openai.responses.parse({
-          model: "gpt-4.1-mini",
-          input: [
-            { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
-            { role: "user", content: inputText },
-          ],
-          text: {
-            format: {
-              type: "json_schema",
-              name: "article_analysis",
-              strict: true,
-              schema: ANALYSIS_JSON_SCHEMA,
+        // Try primary model with timeout to prevent Vercel 10s hang
+        let response;
+        try {
+          const openaiPromise = openai.responses.parse({
+            model: PRIMARY_MODEL,
+            input: [
+              { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
+              { role: "user", content: inputText },
+            ],
+            text: {
+              format: {
+                type: "json_schema",
+                name: "article_analysis",
+                strict: true,
+                schema: ANALYSIS_JSON_SCHEMA,
+              },
             },
-          },
-        });
-
-        const parsed = response.output_parsed as ArticleAnalysis | null;
-
-        if (!parsed) {
-          throw new Error("OpenAI returned empty analysis");
+          });
+          // 18s timeout wrapper (less than Vercel max but enough for analysis)
+          response = await withTimeout(openaiPromise, 18000, "OpenAI timeout after 18s");
+        } catch (primaryError) {
+          const msg = primaryError instanceof Error ? primaryError.message : String(primaryError);
+          console.warn(`Primary model ${PRIMARY_MODEL} failed: ${msg}, trying fallback ${FALLBACK_MODEL}`);
+          // Try fallback model if primary fails and not timeout
+          if (!msg.toLowerCase().includes("timeout")) {
+            const fallbackPromise = openai.responses.parse({
+              model: FALLBACK_MODEL,
+              input: [
+                { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
+                { role: "user", content: inputText },
+              ],
+              text: {
+                format: {
+                  type: "json_schema",
+                  name: "article_analysis",
+                  strict: true,
+                  schema: ANALYSIS_JSON_SCHEMA,
+                },
+              },
+            });
+            response = await withTimeout(fallbackPromise, 15000, "Fallback model timeout");
+          } else {
+            throw primaryError;
+          }
         }
 
+        const parsed = (response as any).output_parsed as ArticleAnalysis | null;
+        if (!parsed) throw new Error("OpenAI returned empty analysis");
         analysis = parsed;
+
+        console.log(`Analysis success in ${Date.now() - startTime}ms using ${PRIMARY_MODEL}`);
+
       } catch (openaiError: unknown) {
         const errMsg = openaiError instanceof Error ? openaiError.message : "OpenAI error";
-        console.error("OpenAI error:", openaiError);
+        console.error("OpenAI error:", errMsg, openaiError);
 
-        // If OpenAI fails due to quota/auth, fall back to mock so app still works
-        if (errMsg.toLowerCase().includes("api key") || errMsg.includes("429")) {
-          analysis = getMockAnalysis(article) as ArticleAnalysis;
+        // Fallback to mock instead of failing - so UI never gets stuck analysing forever
+        if (
+          errMsg.toLowerCase().includes("api key") ||
+          errMsg.toLowerCase().includes("billing") ||
+          errMsg.toLowerCase().includes("quota") ||
+          errMsg.includes("429") ||
+          errMsg.toLowerCase().includes("timeout") ||
+          errMsg.toLowerCase().includes("insufficient")
+        ) {
+          console.warn("Falling back to mock due to OpenAI issue:", errMsg);
+          analysis = getMockAnalysis(trimmedArticle) as ArticleAnalysis;
+          (analysis as any).isMock = true;
+          (analysis as any).mockReason = errMsg.slice(0, 200);
         } else {
-          return NextResponse.json(
-            { error: `AI analysis failed: ${errMsg}` },
-            { status: 502 }
-          );
+          // For other errors, still fallback to mock for demo stability but include warning
+          analysis = getMockAnalysis(trimmedArticle) as ArticleAnalysis;
+          (analysis as any).isMock = true;
+          (analysis as any).mockReason = errMsg.slice(0, 200);
         }
       }
     }
 
-    // 4. Save assistant message with structured JSON
     const { data: assistantMessage, error: assistantMessageError } = await supabase
       .from("messages")
       .insert({
         thread_id: thread.id,
         role: "assistant",
-        content: analysis.summary, // Keep summary as main content for compatibility
+        content: analysis.summary,
         analysis_json: analysis,
       })
       .select()
@@ -145,10 +173,8 @@ export async function POST(req: Request) {
 
     if (assistantMessageError) {
       console.error("Assistant message insert error:", assistantMessageError);
-      // If column missing, try without analysis_json and tell user to migrate
       if (assistantMessageError.message.includes("analysis_json")) {
-        // Retry without JSON column
-        const { data: fallbackMsg, error: fallbackError } = await supabase
+        const { data: fallbackMsg } = await supabase
           .from("messages")
           .insert({
             thread_id: thread.id,
@@ -158,16 +184,11 @@ export async function POST(req: Request) {
           .select()
           .single();
 
-        if (fallbackError) {
-          return NextResponse.json({ error: fallbackError.message }, { status: 500 });
-        }
-
         return NextResponse.json({
           threadId: thread.id,
           analysis,
           message: fallbackMsg,
-          warning:
-            "DB missing analysis_json column. Run: alter table messages add column if not exists analysis_json jsonb;",
+          warning: "DB needs: alter table messages add column if not exists analysis_json jsonb;",
         });
       }
       return NextResponse.json({ error: assistantMessageError.message }, { status: 500 });
@@ -181,9 +202,7 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     console.error("Unexpected server error in /api/analyze:", err);
     return NextResponse.json(
-      {
-        error: err instanceof Error ? err.message : "Unexpected server error",
-      },
+      { error: err instanceof Error ? err.message : "Unexpected server error" },
       { status: 500 }
     );
   }
