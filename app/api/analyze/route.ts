@@ -4,15 +4,15 @@ export const maxDuration = 10;
 import { supabaseAdmin, getUserFromRequest } from "@/lib/supabaseServer";
 import { NextResponse } from "next/server";
 import type { ArticleAnalysis } from "@/lib/types";
-import { getMockAnalysis } from "@/lib/openai";
 
 export async function POST(req: Request) {
+  const start = Date.now();
   try {
     const body = await req.json();
     const { article, userId: clientUserId, title: clientTitle } = body;
 
-    if (!article || typeof article !== "string" || article.trim().length < 20) {
-      return NextResponse.json({ error: "Paste at least 20 chars" }, { status: 400 });
+    if (!article || article.trim().length < 20) {
+      return NextResponse.json({ error: "Too short" }, { status: 400 });
     }
 
     let userId = await getUserFromRequest(req);
@@ -20,79 +20,70 @@ export async function POST(req: Request) {
     if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const supabase = supabaseAdmin();
-    let title = clientTitle?.trim() || article.split("\n")[0].slice(0, 60);
-    const { data: thread } = await supabase.from("threads").insert({ user_id: userId, title }).select().single();
-    if (!thread) return NextResponse.json({ error: "Thread create failed" }, { status: 500 });
-    
-    await supabase.from("messages").insert({ thread_id: thread.id, role: "user", content: article });
+    const title = (clientTitle?.trim() || article.slice(0, 50)).slice(0, 80);
 
-    // REAL AI - NO MOCK unless OpenAI fails
-    const openaiKey = process.env.OPENAI_API_KEY;
-    if (!openaiKey || !openaiKey.startsWith("sk-")) {
-      return NextResponse.json({ error: "OPENAI_API_KEY missing in Vercel - add it in Env Vars and Redeploy" }, { status: 500 });
+    // Fast thread create
+    const { data: thread, error: tErr } = await supabase.from("threads").insert({ user_id: userId, title }).select().single();
+    if (tErr || !thread) return NextResponse.json({ error: tErr?.message || "Thread fail" }, { status: 500 });
+
+    // Don't await user message insert - fire and forget to save time for demo
+    supabase.from("messages").insert({ thread_id: thread.id, role: "user", content: article.slice(0, 2000) }).then(()=>{},()=>{});
+
+    const key = process.env.OPENAI_API_KEY || "";
+    if (!key || !key.startsWith("sk-")) {
+      return NextResponse.json({ error: "OPENAI_API_KEY missing in Vercel - add it and Redeploy" }, { status: 500 });
     }
 
-    // Import here to not slow cold start
-    const { default: OpenAI } = await import("openai");
-    const openai = new OpenAI({ apiKey: openaiKey, timeout: 8000 });
-
-    const trimmed = article.slice(0, 3000);
-
-    const prompt = `You are SourceSense media bias analyzer. Analyze article for bias. Return ONLY JSON with this exact structure:
-{
-  "biasScore": number 0-100,
-  "leaning": "Far Left"|"Left"|"Centre-left"|"Centre"|"Centre-right"|"Right"|"Far Right",
-  "confidence": number,
-  "summary": "3 sentence neutral summary",
-  "headlineAnalysis": "headline vs body check",
-  "framing": [{"technique": "...", "example": "quote", "explanation": "..."}],
-  "loadedLanguage": [{"phrase": "...", "context": "...", "impact": "...", "severity": "low"|"medium"|"high"}],
-  "missingContext": ["..."],
-  "sourcesToCheck": ["..."],
-  "credibilityScore": number,
-  "overallAssessment": "...",
-  "keyTakeaways": ["..."]
-}
-Be specific, cite actual phrases from article. Article: ${trimmed}`;
-
+    // SUPER FAST OpenAI call - 4.5 sec max to stay under Vercel 10 sec
     try {
+      const { default: OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: key, timeout: 4500, maxRetries: 0 });
+
+      const trimmed = article.slice(0, 2000);
+
+      const prompt = `Analyze article for bias. Return ONLY valid JSON:
+{"biasScore": 0-100, "leaning": "Far Left|Left|Centre-left|Centre|Centre-right|Right|Far Right", "confidence": 0-100, "summary": "3 sentence neutral summary", "headlineAnalysis": "check", "framing": [{"technique":"...","example":"quote","explanation":"..."}], "loadedLanguage": [{"phrase":"...","context":"...","impact":"...","severity":"low|medium|high"}], "missingContext": ["..."], "sourcesToCheck": ["..."], "credibilityScore": 0-100, "overallAssessment": "...", "keyTakeaways": ["..."]}
+Article: ${trimmed}`;
+
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
-        temperature: 0.2,
-        max_tokens: 1500,
+        temperature: 0.1,
+        max_tokens: 700,
       });
 
-      const raw = completion.choices[0]?.message?.content || "{}";
-      const parsed = JSON.parse(raw);
+      const raw = completion.choices[0]?.message?.content?.trim() || "{}";
+      // Extract JSON if wrapped
+      const jsonStr = raw.match(/\{[\s\S]*\}/)?.[0] || raw;
+      const parsed = JSON.parse(jsonStr);
 
       const analysis: ArticleAnalysis = {
-        biasScore: parsed.biasScore ?? 50,
+        biasScore: Number(parsed.biasScore) || 55,
         leaning: parsed.leaning || "Centre",
         confidence: parsed.confidence || 75,
-        summary: parsed.summary || "Analysis complete",
+        summary: parsed.summary || "Analysis done",
         headlineAnalysis: parsed.headlineAnalysis || "",
-        framing: parsed.framing || [],
-        loadedLanguage: parsed.loadedLanguage || [],
-        missingContext: parsed.missingContext || [],
-        sourcesToCheck: parsed.sourcesToCheck || [],
+        framing: (parsed.framing || []).slice(0,3),
+        loadedLanguage: (parsed.loadedLanguage || []).slice(0,3),
+        missingContext: (parsed.missingContext || []).slice(0,3),
+        sourcesToCheck: (parsed.sourcesToCheck || []).slice(0,3),
         credibilityScore: parsed.credibilityScore || 70,
         overallAssessment: parsed.overallAssessment || "",
-        keyTakeaways: parsed.keyTakeaways || [],
+        keyTakeaways: (parsed.keyTakeaways || []).slice(0,3),
       };
 
+      // Fast insert, don't wait long
       await supabase.from("messages").insert({ thread_id: thread.id, role: "assistant", content: analysis.summary, analysis_json: analysis });
 
+      console.log(`OK in ${Date.now()-start}ms`);
       return NextResponse.json({ threadId: thread.id, analysis });
 
-    } catch (aiError: any) {
-      console.error("OpenAI error:", aiError?.message, aiError?.status);
-      // Return REAL error so frontend shows why, not infinite spinner
-      return NextResponse.json({ 
-        error: `AI failed: ${aiError?.message || "Unknown"} - Check OpenAI billing and key is valid and has credits. Key starts with ${openaiKey.slice(0,8)}...`,
-        details: aiError?.message
-      }, { status: 502 });
+    } catch (aiErr: any) {
+      const msg = aiErr?.message || String(aiErr);
+      console.error(`AI fail in ${Date.now()-start}ms: ${msg}`);
+      // Return clear error, not 504
+      return NextResponse.json({ error: `AI failed after ${Date.now()-start}ms: ${msg}. Check OpenAI key valid and has credits, and billing enabled. Key prefix ${key.slice(0,10)}...` }, { status: 502 });
     }
 
   } catch (err: any) {
